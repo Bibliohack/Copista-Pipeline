@@ -2,13 +2,20 @@
 
 Sistema en Python para aplicar una sucesión configurable de filtros sobre imágenes.
 
+<video width="640" height="360" controls>
+  <source src="samples/screencapt.mp4" type="video/mp4">
+  Tu navegador no soporta el elemento de video.
+</video>
+
+
+
 ## Uso Rápido
 
 ```bash
 # Instalar dependencias
 pip install opencv-python numpy
 
-# Crear los archivos de configuracion de la configuracion de ejemplo
+# Crear los archivos de configuración desde los ejemplos
 cp samples/pipeline.json pipeline.json
 cp samples/checkpoint.json checkpoint.json
 cp samples/params.json params.json
