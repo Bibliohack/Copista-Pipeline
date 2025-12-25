@@ -2,12 +2,7 @@
 
 Sistema en Python para aplicar una sucesión configurable de filtros sobre imágenes.
 
-<video width="640" height="360" controls>
-  <source src="samples/screencapt.mp4" type="video/mp4">
-  Tu navegador no soporta el elemento de video.
-</video>
-
-
+https://github.com/user-attachments/assets/e84fdcec-30dc-49f0-81f8-e44c3913897a
 
 ## Uso Rápido
 
