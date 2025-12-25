@@ -2,6 +2,27 @@
 
 Sistema en Python para aplicar una sucesión configurable de filtros sobre imágenes.
 
+## Uso Rápido
+
+```bash
+# Instalar dependencias
+pip install opencv-python numpy
+
+# Crear los archivos de configuracion de la configuracion de ejemplo
+cp samples/pipeline.json pipeline.json
+cp samples/checkpoint.json checkpoint.json
+cp samples/params.json params.json
+
+# Ejecutar el configurador GUI
+python param_configurator.py [ruta_a_carpeta_imagenes]
+
+# Si no se indica ruta, usa el directorio actual
+python param_configurator.py
+
+# Limpiar todo el cache al iniciar
+python param_configurator.py --clear-cache
+```
+
 ## Estructura de Archivos
 
 ```
@@ -17,21 +38,6 @@ image_filter_system/
             └── {imagen}.png
 ```
 
-## Uso Rápido
-
-```bash
-# Instalar dependencias
-pip install opencv-python numpy
-
-# Ejecutar el configurador GUI
-python param_configurator.py [ruta_a_carpeta_imagenes]
-
-# Si no se indica ruta, usa el directorio actual
-python param_configurator.py
-
-# Limpiar todo el cache al iniciar
-python param_configurator.py --clear-cache
-```
 
 ## Controles del Configurador GUI
 
