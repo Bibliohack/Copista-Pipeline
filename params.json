@@ -1,0 +1,68 @@
+{
+    "version": "1.0",
+    "description": "Parámetros guardados para los filtros del pipeline",
+    "last_modified": "",
+    "filter_params": {
+        "0": {
+            "filter_name": "Resize",
+            "params": {
+                "mode": 0,
+                "scale_percent": 50,
+                "width": 640,
+                "height": 480,
+                "interpolation": 1
+            }
+        },
+        "1": {
+            "filter_name": "BrightnessContrast",
+            "params": {
+                "brightness": 0,
+                "contrast": 100
+            }
+        },
+        "2": {
+            "filter_name": "Grayscale",
+            "params": {
+                "method": 0,
+                "weight_r": 30,
+                "weight_g": 59,
+                "weight_b": 11
+            }
+        },
+        "3": {
+            "filter_name": "GaussianBlur",
+            "params": {
+                "kernel_size": 5,
+                "sigma": 0
+            }
+        },
+        "4": {
+            "filter_name": "CannyEdge",
+            "params": {
+                "threshold1": 50,
+                "threshold2": 150,
+                "aperture_size": 3,
+                "l2_gradient": 0
+            }
+        },
+        "5": {
+            "filter_name": "HoughLines",
+            "params": {
+                "method": 1,
+                "rho": 1,
+                "theta_divisor": 180,
+                "threshold": 100,
+                "min_line_length": 50,
+                "max_line_gap": 10
+            }
+        },
+        "6": {
+            "filter_name": "OverlayLines",
+            "params": {
+                "color_preset": 0,
+                "line_thickness": 2,
+                "alpha": 100
+            }
+        }
+    }
+}
