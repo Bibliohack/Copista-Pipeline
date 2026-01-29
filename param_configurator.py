@@ -34,6 +34,13 @@ from typing import Dict, List, Any, Optional, Tuple
 
 from filter_library import FILTER_REGISTRY, get_filter, list_filters, BaseFilter
 
+# Importar sincronizador para validar pipeline/params al inicio
+try:
+    from sync_pipeline_params import PipelineParamsSync
+except ImportError:
+    PipelineParamsSync = None
+    print("⚠️  sync_pipeline_params.py no encontrado - no se validará sincronización")
+
 
 class CacheManager:
     """Maneja el sistema de cache de filtros"""
@@ -1024,6 +1031,23 @@ def main():
     print(f"Checkpoint: {checkpoint_path}")
     if clear_cache:
         print("⚠️  Se borrará todo el cache al iniciar")
+    
+    # Validar sincronización entre pipeline.json y params.json
+    if PipelineParamsSync is not None:
+        print("\n🔍 Validando sincronización pipeline ↔ params...")
+        sync = PipelineParamsSync(str(pipeline_path), str(params_path))
+        
+        if not sync.load_files():
+            print("\n❌ Error al cargar archivos. Abortando.")
+            sys.exit(1)
+        
+        sync.analyze()
+        
+        if not sync.validate_only():
+            # Hay problemas - detener ejecución
+            sys.exit(1)
+        
+        print("✅ Sincronización OK\n")
     
     # Crear y ejecutar configurador
     configurator = ParamConfigurator(

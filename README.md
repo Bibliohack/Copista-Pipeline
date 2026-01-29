@@ -31,15 +31,148 @@ python param_configurator.py --clear-cache
 image_filter_system/
 ├── pipeline.json           # (A) Define qué filtros aplicar y sus conexiones
 ├── params.json             # (B) Parámetros guardados de los filtros
+├── checkpoint.json         # Configuración del checkpoint de cache
 ├── filter_library.py       # (C) Biblioteca de filtros disponibles
 ├── param_configurator.py   # (D) GUI para configurar parámetros
-├── checkpoint.json         # Configuración del checkpoint de cache
+├── sync_pipeline_params.py # (E) ⭐ NUEVO: Sincronizador pipeline ↔ params
 └── carpeta_imagenes/
     └── .cache/             # Cache de filtros (generado automáticamente)
         └── {filtro}/
             └── {imagen}.png
 ```
 
+## ⭐ NUEVO: Sistema de Sincronización Pipeline ↔ Parámetros
+
+### ¿Qué problema resuelve?
+
+Cuando modificas `pipeline.json` (agregas, eliminas o reordenas filtros), los parámetros en `params.json` pueden quedar desalineados porque se guardan por índice numérico.
+
+**El sincronizador detecta y corrige automáticamente estos problemas.**
+
+### Validación Automática
+
+`param_configurator.py` ahora valida automáticamente la sincronización al iniciar:
+
+```bash
+$ python param_configurator.py
+
+🔍 Validando sincronización pipeline ↔ params...
+
+# CASO 1: Solo filtros nuevos (continúa normalmente)
+⚠️  AVISOS DETECTADOS (no bloqueantes)
+2 filtro(s) nuevo(s) detectado(s):
+  • Índice 3: CannyEdge (usará defaults)
+  • Índice 4: Morphology (usará defaults)
+✅ Puedes continuar. param_configurator.py funcionará normalmente.
+
+# CASO 2: Errores críticos (bloquea ejecución)
+❌ VALIDACIÓN FALLIDA - ERRORES CRÍTICOS
+Se encontraron 1 errores bloqueantes:
+  • Índice 2: Cambio de filtro
+    Era: GaussianBlur
+    Ahora: CannyEdge
+
+⚠️  Debes ejecutar: python sync_pipeline_params.py
+```
+
+### Uso del Sincronizador
+
+```bash
+# Modo interactivo: te pregunta qué hacer con cada problema
+python sync_pipeline_params.py
+
+# Modo automático: limpia huérfanos automáticamente
+python sync_pipeline_params.py --auto-clean
+
+# Solo validar sin hacer cambios
+python sync_pipeline_params.py --validate-only
+```
+
+### Tipos de Problemas Detectados
+
+| Tipo | Criticidad | Descripción |
+|------|------------|-------------|
+| **MISMATCH** | ❌ Bloqueante | Mismo índice, diferente filtro (ej: índice 2 era Blur, ahora es Canny) |
+| **ORPHAN** | ⚠️ Advertencia | Parámetros sin filtro correspondiente (pueden limpiarse) |
+| **MOVED** | ⚠️ Advertencia | Filtro movido de posición (puede corregirse) |
+| **NEW** | ℹ️ Info (OK) | Filtros nuevos sin parámetros (usarán defaults) |
+
+**Solo MISMATCH bloquea param_configurator.py**
+
+### Flujo de Trabajo Recomendado
+
+#### Agregar filtros nuevos (simple)
+```bash
+# Edita pipeline.json, agrega filtros al final
+python param_configurator.py
+# ✅ Detecta filtros nuevos, avisa, y continúa normalmente
+```
+
+#### Modificar pipeline existente (requiere sincronización)
+```bash
+# 1. Edita pipeline.json (elimina, mueve, cambia filtros)
+# 2. Sincroniza
+python sync_pipeline_params.py
+# 3. Continúa normalmente
+python param_configurator.py
+```
+
+### Ejemplo de Sesión Interactiva
+
+```bash
+$ python sync_pipeline_params.py
+
+============================================================
+❌ ERRORES BLOQUEANTES: 1
+⚠️  ADVERTENCIAS: 1
+ℹ️  INFORMACIÓN: 1
+============================================================
+
+❌ CAMBIOS DE FILTRO - BLOQUEANTE (1):
+  Índice 2:
+    Pipeline: CannyEdge
+    Params:   GaussianBlur
+
+⚠️  PARÁMETROS HUÉRFANOS - ADVERTENCIA (1):
+  Índice 5: Threshold
+    (este filtro ya no está en pipeline.json)
+
+ℹ️  FILTROS NUEVOS - OK (1):
+  Índice 3: Morphology
+
+¿Deseas corregir estos problemas? (s/n): s
+
+[1/3] CAMBIO DE FILTRO en índice 2
+  Pipeline: CannyEdge
+  Params:   GaussianBlur
+
+Opciones:
+  1) Usar parámetros guardados para el NUEVO filtro (si son compatibles)
+  2) Descartar parámetros antiguos (usar defaults del nuevo filtro)
+  3) Cancelar (mantener como está)
+
+Elige opción (1/2/3): 2
+  ✓ Parámetros antiguos descartados
+
+[2/3] PARÁMETROS HUÉRFANOS en índice 5
+  Filtro: Threshold
+  (ya no existe en pipeline.json)
+
+Opciones:
+  1) Eliminar estos parámetros
+  2) Mantener (por si lo vuelves a usar)
+
+Elige opción (1/2): 1
+  ✓ Parámetros eliminados
+
+[3/3] FILTRO NUEVO en índice 3
+  Filtro: Morphology
+  ✅ Esto está OK. Usará valores por defecto.
+
+✅ Cambios guardados en params.json
+```
+
+Para más detalles, consulta la [Documentación Completa de Sincronización](docs/SINCRONIZACION.md)
 
 ## Controles del Configurador GUI
 
@@ -136,6 +269,8 @@ Formato de referencias: `"numero_filtro.nombre_output"`
 Se genera/actualiza automáticamente al presionar 's'.
 Si no existe, los filtros usan sus valores por defecto.
 
+**Importante**: Los parámetros se guardan por índice numérico. Si modificas `pipeline.json`, ejecuta `sync_pipeline_params.py` para mantener la sincronización.
+
 ### checkpoint.json - Configuración del Checkpoint
 
 ```json
@@ -181,6 +316,10 @@ class MiNuevoFiltro(BaseFilter):
 
 El filtro se registra automáticamente al definir la clase.
 
+Ver documentación completa en:
+- [FILTER_REFERENCE.md](docs/FILTER_REFERENCE.md) - Referencia rápida
+- [FILTER_DEVELOPMENT_GUIDE.md](docs/FILTER_DEVELOPMENT_GUIDE.md) - Guía detallada
+
 ## Filtros Disponibles
 
 | Filtro | Descripción | Inputs | Outputs |
@@ -209,8 +348,52 @@ Algunos filtros no procesan realmente la imagen, solo combinan datos para visual
 ### Flujo de Datos
 Los filtros pueden tomar datos de cualquier filtro anterior, no solo del inmediato.
 
+### Reutilización de Filtros
+El mismo filtro puede usarse múltiples veces en el pipeline con diferentes parámetros:
+
+```json
+{
+    "0": {"filter_name": "Resize", "params": {"scale": 50}},
+    "1": {"filter_name": "Grayscale", ...},
+    "2": {"filter_name": "Resize", "params": {"scale": 200}}
+}
+```
+
+## Scripts Disponibles
+
+| Script | Propósito |
+|--------|-----------|
+| `param_configurator.py` | Configurador GUI principal (valida sincronización automáticamente) |
+| `sync_pipeline_params.py` | Sincronizador de pipeline.json ↔ params.json |
+| `filter_library.py` | Biblioteca de filtros |
+
+## Comandos Útiles
+
+```bash
+# Ejecutar configurador
+python param_configurator.py [carpeta_imagenes]
+
+# Validar sincronización sin GUI
+python sync_pipeline_params.py --validate-only
+
+# Limpiar parámetros huérfanos automáticamente
+python sync_pipeline_params.py --auto-clean
+
+# Resolver problemas interactivamente
+python sync_pipeline_params.py
+
+# Limpiar todo el cache
+python param_configurator.py --clear-cache
+```
+
 ## Requisitos
 
 - Python 3.8+
 - OpenCV (`opencv-python`)
 - NumPy
+
+## Documentación Adicional
+
+- **[README_SINCRONIZACION.md](docs/README_SINCRONIZACION.md)** - Guía completa del sistema de sincronización
+- **[FILTER_REFERENCE.md](docs/FILTER_REFERENCE.md)** - Referencia rápida para crear filtros
+- **[FILTER_DEVELOPMENT_GUIDE.md](docs/FILTER_DEVELOPMENT_GUIDE.md)** - Guía técnica detallada para desarrolladores
