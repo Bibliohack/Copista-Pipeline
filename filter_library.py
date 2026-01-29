@@ -19,6 +19,7 @@ Para agregar un nuevo filtro:
 
 import cv2
 import numpy as np
+import warnings  # <-- AÑADIDO
 from abc import ABC, abstractmethod
 from typing import Dict, Any, List, Tuple
 
@@ -124,7 +125,7 @@ class ResizeFilter(BaseFilter):
     
     FILTER_NAME = "Resize"
     DESCRIPTION = "Redimensiona la imagen a un tamaño específico o por porcentaje"
-    INPUTS = {}  # No requiere inputs de otros filtros, usa la imagen original
+    INPUTS = {"input_image": "image"}  # <-- MODIFICADO: ahora acepta input_image
     OUTPUTS = {
         "resized_image": "image",
         "sample_image": "image"
@@ -176,18 +177,24 @@ class ResizeFilter(BaseFilter):
     ]
     
     def process(self, inputs: Dict[str, Any], original_image: np.ndarray) -> Dict[str, Any]:
+        # <-- MODIFICADO: Ahora acepta input_image con fallback y advertencia
+        input_img = inputs.get("input_image")
+        if input_img is None:
+            warnings.warn(f"[Resize] No se proporcionó 'input_image', usando imagen original.", stacklevel=2)
+            input_img = original_image
+        
         mode = self.params["mode"]
         interp = self.INTERPOLATION_METHODS[self.params["interpolation"]]
         
         if mode == 0:
             scale = self.params["scale_percent"] / 100.0
-            new_width = int(original_image.shape[1] * scale)
-            new_height = int(original_image.shape[0] * scale)
+            new_width = int(input_img.shape[1] * scale)  # <-- Usar input_img
+            new_height = int(input_img.shape[0] * scale)  # <-- Usar input_img
         else:
             new_width = self.params["width"]
             new_height = self.params["height"]
         
-        resized = cv2.resize(original_image, (new_width, new_height), interpolation=interp)
+        resized = cv2.resize(input_img, (new_width, new_height), interpolation=interp)  # <-- Usar input_img
         
         return {
             "resized_image": resized,
@@ -573,7 +580,8 @@ class HoughLinesFilter(BaseFilter):
     FILTER_NAME = "HoughLines"
     DESCRIPTION = "Detecta líneas rectas usando la transformada de Hough"
     INPUTS = {
-        "edge_image": "image"
+        "edge_image": "image",
+        "base_image": "image"  # <-- AÑADIDO: para visualización
     }
     OUTPUTS = {
         "lines_data": "lines",
@@ -626,22 +634,25 @@ class HoughLinesFilter(BaseFilter):
     
     def process(self, inputs: Dict[str, Any], original_image: np.ndarray) -> Dict[str, Any]:
         edge_img = inputs.get("edge_image")
+        base_img = inputs.get("base_image", original_image)  # <-- MODIFICADO: fallback con advertencia
+        
         if edge_img is None:
-            # Si no hay edge_image, usar la imagen original
-            if len(original_image.shape) == 3:
-                edge_img = cv2.Canny(cv2.cvtColor(original_image, cv2.COLOR_BGR2GRAY), 50, 150)
+            warnings.warn(f"[HoughLines] No se proporcionó 'edge_image', aplicando Canny a la imagen base.", stacklevel=2)
+            # Si no hay edge_image, usar la imagen base
+            if len(base_img.shape) == 3:
+                edge_img = cv2.Canny(cv2.cvtColor(base_img, cv2.COLOR_BGR2GRAY), 50, 150)
             else:
-                edge_img = cv2.Canny(original_image, 50, 150)
+                edge_img = cv2.Canny(base_img, 50, 150)
         
         rho = self.params["rho"]
         theta = np.pi / self.params["theta_divisor"]
         threshold = self.params["threshold"]
         
-        # Crear imagen para visualización
-        if len(original_image.shape) == 3:
-            sample = original_image.copy()
+        # Crear imagen para visualización usando base_img
+        if len(base_img.shape) == 3:
+            sample = base_img.copy()
         else:
-            sample = cv2.cvtColor(original_image, cv2.COLOR_GRAY2BGR)
+            sample = cv2.cvtColor(base_img, cv2.COLOR_GRAY2BGR)
         
         lines_data = []
         
@@ -869,11 +880,11 @@ class ContourFilter(BaseFilter):
         min_area = self.params["min_area"]
         filtered_contours = [c for c in contours if cv2.contourArea(c) >= min_area]
         
-        # Crear imagen de contornos
-        if len(original_image.shape) == 3:
-            contour_img = original_image.copy()
+        # Crear imagen de contornos usando input_img (no original_image)
+        if len(input_img.shape) == 3:
+            contour_img = input_img.copy()
         else:
-            contour_img = cv2.cvtColor(original_image, cv2.COLOR_GRAY2BGR)
+            contour_img = cv2.cvtColor(input_img, cv2.COLOR_GRAY2BGR)
         
         color = (self.params["color_b"], self.params["color_g"], self.params["color_r"])
         cv2.drawContours(contour_img, filtered_contours, -1, color, self.params["draw_thickness"])
@@ -1214,7 +1225,8 @@ class MinArcLength(BaseFilter):
     DESCRIPTION = "Filtra una imagen de bordes, eliminando contornos cuya longitud de arco sea menor al mínimo especificado."
     
     INPUTS = {
-        "edge_image": "image"
+        "edge_image": "image",
+        "base_image": "image"  # <-- AÑADIDO: para visualización
     }
     
     OUTPUTS = {
@@ -1248,13 +1260,15 @@ class MinArcLength(BaseFilter):
     
     def process(self, inputs: Dict[str, Any], original_image: np.ndarray) -> Dict[str, Any]:
         edge_img = inputs.get("edge_image")
+        base_img = inputs.get("base_image", original_image)  # <-- MODIFICADO: fallback con advertencia
         
         if edge_img is None:
-            # Si no hay edge_image, aplicar Canny a la original
-            if len(original_image.shape) == 3:
-                gray = cv2.cvtColor(original_image, cv2.COLOR_BGR2GRAY)
+            warnings.warn(f"[MinArcLength] No se proporcionó 'edge_image', aplicando Canny a la imagen base.", stacklevel=2)
+            # Si no hay edge_image, aplicar Canny a la imagen base
+            if len(base_img.shape) == 3:
+                gray = cv2.cvtColor(base_img, cv2.COLOR_BGR2GRAY)
             else:
-                gray = original_image
+                gray = base_img
             edge_img = cv2.Canny(gray, 50, 150)
         
         # Asegurar que es grayscale
@@ -1709,11 +1723,11 @@ class ContourSimplify(BaseFilter):
         # Encontrar contornos
         contours, hierarchy = cv2.findContours(binary, mode, cv2.CHAIN_APPROX_SIMPLE)
         
-        # Crear imagen para dibujar
-        if len(original_image.shape) == 3:
-            contour_img = original_image.copy()
+        # Crear imagen para dibujar usando input_img (no original_image)
+        if len(input_img.shape) == 3:
+            contour_img = input_img.copy()
         else:
-            contour_img = cv2.cvtColor(original_image, cv2.COLOR_GRAY2BGR)
+            contour_img = cv2.cvtColor(input_img, cv2.COLOR_GRAY2BGR)
         
         # Preparar datos de contornos
         contours_data = []
@@ -1899,6 +1913,7 @@ class ClassifyLinesByAngle(BaseFilter):
     DESCRIPTION = "Clasifica líneas detectadas por Hough en horizontales, verticales y otras según tolerancia angular. Soporta formato HoughLines y HoughLinesP."
     
     INPUTS = {
+        "base_image": "image",  # <-- AÑADIDO: para visualización
         "lines_data": "lines"
     }
     
@@ -2019,6 +2034,7 @@ class ClassifyLinesByAngle(BaseFilter):
     
     def process(self, inputs: Dict[str, Any], original_image: np.ndarray) -> Dict[str, Any]:
         lines_data = inputs.get("lines_data", [])
+        base_img = inputs.get("base_image", original_image)  # <-- MODIFICADO: fallback con advertencia
         
         tolerance = self.params["angle_tolerance"]
         thickness = self.params["line_thickness"]
@@ -2038,14 +2054,14 @@ class ClassifyLinesByAngle(BaseFilter):
         vertical_lines = []
         other_lines = []
         
-        # Crear imagen para visualización
-        if len(original_image.shape) == 2:
-            vis_img = cv2.cvtColor(original_image, cv2.COLOR_GRAY2BGR)
+        # Crear imagen para visualización usando base_img
+        if len(base_img.shape) == 2:
+            vis_img = cv2.cvtColor(base_img, cv2.COLOR_GRAY2BGR)
         else:
-            vis_img = original_image.copy()
+            vis_img = base_img.copy()
         
         for line in lines_data:
-            points = self._convert_to_points_format(line, original_image.shape)
+            points = self._convert_to_points_format(line, base_img.shape)  # <-- Usar base_img.shape
             if points is None:
                 continue
             
@@ -2089,6 +2105,7 @@ class SelectBorderLines(BaseFilter):
     DESCRIPTION = "Selecciona 4 líneas de borde (top, bottom, left, right) usando lógica de clustering y márgenes. Si no hay línea válida, usa el borde de imagen."
     
     INPUTS = {
+        "base_image": "image",  # <-- AÑADIDO: para visualización
         "horizontal_lines": "lines",
         "vertical_lines": "lines"
     }
@@ -2225,8 +2242,9 @@ class SelectBorderLines(BaseFilter):
     def process(self, inputs: Dict[str, Any], original_image: np.ndarray) -> Dict[str, Any]:
         horizontal_lines = inputs.get("horizontal_lines", [])
         vertical_lines = inputs.get("vertical_lines", [])
+        base_img = inputs.get("base_image", original_image)  # <-- MODIFICADO: fallback con advertencia
         
-        h, w = original_image.shape[:2]
+        h, w = base_img.shape[:2]  # <-- Usar base_img, no original_image
         center_x, center_y = w // 2, h // 2
         
         # Obtener parámetros
@@ -2413,11 +2431,11 @@ class SelectBorderLines(BaseFilter):
         else:
             metadata["right_is_image_border"] = True
         
-        # Crear imagen de visualización
-        if len(original_image.shape) == 2:
-            vis_img = cv2.cvtColor(original_image, cv2.COLOR_GRAY2BGR)
+        # Crear imagen de visualización usando base_img
+        if len(base_img.shape) == 2:
+            vis_img = cv2.cvtColor(base_img, cv2.COLOR_GRAY2BGR)
         else:
-            vis_img = original_image.copy()
+            vis_img = base_img.copy()
         
         # Dibujar líneas seleccionadas o bordes de imagen
         for name, line in selected.items():
@@ -2463,6 +2481,7 @@ class CalculateQuadCorners(BaseFilter):
     DESCRIPTION = "Calcula las 4 esquinas (top_left, top_right, bottom_left, bottom_right) intersectando las líneas de borde seleccionadas. Genera polígono de recorte."
     
     INPUTS = {
+        "base_image": "image",  # <-- AÑADIDO: para visualización
         "selected_lines": "border_lines",
         "selection_metadata": "metadata"
     }
@@ -2580,8 +2599,9 @@ class CalculateQuadCorners(BaseFilter):
     def process(self, inputs: Dict[str, Any], original_image: np.ndarray) -> Dict[str, Any]:
         selected_lines = inputs.get("selected_lines", {})
         metadata = inputs.get("selection_metadata", {})
+        base_img = inputs.get("base_image", original_image)  # <-- MODIFICADO: fallback con advertencia
         
-        h, w = original_image.shape[:2]
+        h, w = base_img.shape[:2]  # <-- Usar base_img, no original_image
         
         radius = self.params["corner_radius"]
         thickness = self.params["polygon_thickness"]
@@ -2644,11 +2664,11 @@ class CalculateQuadCorners(BaseFilter):
             else:
                 corners[corner_name] = None
         
-        # Crear imagen de visualización
-        if len(original_image.shape) == 2:
-            vis_img = cv2.cvtColor(original_image, cv2.COLOR_GRAY2BGR)
+        # Crear imagen de visualización usando base_img
+        if len(base_img.shape) == 2:
+            vis_img = cv2.cvtColor(base_img, cv2.COLOR_GRAY2BGR)
         else:
-            vis_img = original_image.copy()
+            vis_img = base_img.copy()
         
         # Recolectar esquinas válidas en orden para el polígono
         corner_order = ["top_left", "top_right", "bottom_right", "bottom_left"]
