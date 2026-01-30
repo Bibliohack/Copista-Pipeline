@@ -1,56 +1,56 @@
 {
     "name": "Pipeline de Ejemplo - Detección de Bordes y Líneas",
-    "description": "Pipeline que demuestra el flujo: resize -> grayscale -> blur -> canny -> hough -> overlay",
-    "version": "1.0",
+    "description": "Pipeline que demuestra el flujo: resize -> contrast -> grayscale -> blur -> canny -> hough -> overlay",
+    "version": "2.0",
     "filters": {
-        "0": {
+        "resize": {
             "filter_name": "Resize",
             "description": "Redimensionar imagen inicial",
             "inputs": {},
             "comment": "El filtro 0 no tiene inputs de otros filtros, trabaja con la imagen original"
         },
-        "1": {
+        "contrast": {
             "filter_name": "BrightnessContrast",
             "description": "Ajustar brillo y contraste",
             "inputs": {
-                "input_image": "0.resized_image"
+                "input_image": "resize.resized_image"
             },
             "comment": "Toma la imagen redimensionada del filtro 0"
         },
-        "2": {
+        "gray": {
             "filter_name": "Grayscale",
             "description": "Convertir a escala de grises",
             "inputs": {
-                "input_image": "1.adjusted_image"
+                "input_image": "contrast.adjusted_image"
             }
         },
-        "3": {
+        "blur": {
             "filter_name": "GaussianBlur",
             "description": "Aplicar desenfoque para reducir ruido",
             "inputs": {
-                "input_image": "2.grayscale_image"
+                "input_image": "gray.grayscale_image"
             }
         },
-        "4": {
+        "canny": {
             "filter_name": "CannyEdge",
             "description": "Detectar bordes",
             "inputs": {
-                "input_image": "3.blurred_image"
+                "input_image": "blur.blurred_image"
             }
         },
-        "5": {
+        "hough": {
             "filter_name": "HoughLines",
             "description": "Detectar líneas",
             "inputs": {
-                "edge_image": "4.edge_image"
+                "edge_image": "canny.edge_image"
             }
         },
-        "6": {
+        "show_lines": {
             "filter_name": "OverlayLines",
             "description": "Visualizar líneas sobre imagen original",
             "inputs": {
-                "base_image": "0.resized_image",
-                "lines_data": "5.lines_data"
+                "base_image": "resize.resized_image",
+                "lines_data": "hough.lines_data"
             },
             "comment": "Este filtro combina datos de múltiples filtros anteriores"
         }
