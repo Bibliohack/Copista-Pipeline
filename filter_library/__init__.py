@@ -26,7 +26,7 @@ from .histogram_visualize import HistogramVisualize
 from .classify_lines_by_angle import ClassifyLinesByAngle
 from .select_border_lines import SelectBorderLines
 from .calculate_quad_corners import CalculateQuadCorners
-
+from .detect_page_skew import DetectPageSkew
 
 # Lista de todos los filtros disponibles
 __all__ = [
@@ -54,6 +54,7 @@ __all__ = [
     "ClassifyLinesByAngle",
     "SelectBorderLines",
     "CalculateQuadCorners",
+    "DetectPageSkew",
 ]
 
 
