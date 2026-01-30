@@ -28,20 +28,26 @@ python param_configurator.py --clear-cache
 ## Estructura de Archivos
 
 ```
-image_filter_system/
+proyecto/
 ├── pipeline.json           # (A) Define qué filtros aplicar y sus conexiones
 ├── params.json             # (B) Parámetros guardados de los filtros
 ├── checkpoint.json         # Configuración del checkpoint de cache
-├── filter_library.py       # (C) Biblioteca de filtros disponibles
+├── filter_library/         # (C) Biblioteca de filtros (módulo)
+│   ├── __init__.py         #     Exporta todos los filtros
+│   ├── base_filter.py      #     Clase base y FILTER_REGISTRY
+│   ├── resize_filter.py    #     Un filtro por archivo
+│   ├── grayscale_filter.py
+│   ├── ...
+│   └── [mi_filtro.py]      #     Nuevos filtros van aquí
 ├── param_configurator.py   # (D) GUI para configurar parámetros
-├── sync_pipeline_params.py # (E) ⭐ NUEVO: Sincronizador pipeline ↔ params
+├── sync_pipeline_params.py # (E) Sincronizador pipeline ↔ params
 └── carpeta_imagenes/
     └── .cache/             # Cache de filtros (generado automáticamente)
         └── {filtro}/
             └── {imagen}.png
 ```
 
-## ⭐ NUEVO: Sistema de Sincronización Pipeline ↔ Parámetros
+## ⭐ Sistema de Sincronización Pipeline ↔ Parámetros
 
 ### ¿Qué problema resuelve?
 
@@ -282,9 +288,23 @@ Si no existe, los filtros usan sus valores por defecto.
 
 ## Agregar Nuevos Filtros
 
-Para agregar un filtro a la biblioteca (`filter_library.py`):
+La biblioteca de filtros está organizada en módulos individuales dentro de `filter_library/`.
+
+### Paso 1: Crear el archivo del filtro
+
+Crear `filter_library/mi_nuevo_filtro.py`:
 
 ```python
+"""
+Filtro: MiNuevoFiltro
+"""
+
+import cv2
+import numpy as np
+from typing import Dict, Any, List, Tuple
+from .base_filter import BaseFilter, FILTER_REGISTRY
+
+
 class MiNuevoFiltro(BaseFilter):
     FILTER_NAME = "MiNuevoFiltro"
     DESCRIPTION = "Descripción del filtro"
@@ -314,28 +334,65 @@ class MiNuevoFiltro(BaseFilter):
         }
 ```
 
-El filtro se registra automáticamente al definir la clase.
+### Paso 2: Registrar en \_\_init\_\_.py
+
+Editar `filter_library/__init__.py`:
+
+```python
+# Agregar el import
+from .mi_nuevo_filtro import MiNuevoFiltro
+
+# Agregar a __all__
+__all__ = [
+    # ... otros filtros ...
+    "MiNuevoFiltro",
+]
+```
+
+El filtro se registra automáticamente al importar el módulo.
 
 Ver documentación completa en:
-- [FILTER_REFERENCE.md](docs/FILTER_REFERENCE.md) - Referencia rápida
-- [FILTER_DEVELOPMENT_GUIDE.md](docs/FILTER_DEVELOPMENT_GUIDE.md) - Guía detallada
+- [FILTER_REFERENCE.md](FILTER_REFERENCE.md) - Referencia rápida
+- [FILTER_DEVELOPMENT_GUIDE.md](FILTER_DEVELOPMENT_GUIDE.md) - Guía detallada
 
 ## Filtros Disponibles
 
+### Filtros Básicos
+
 | Filtro | Descripción | Inputs | Outputs |
 |--------|-------------|--------|---------|
-| `Resize` | Redimensiona la imagen | - | resized_image |
+| `Resize` | Redimensiona la imagen | input_image | resized_image |
 | `BrightnessContrast` | Ajusta brillo y contraste | input_image | adjusted_image |
 | `Grayscale` | Convierte a escala de grises | input_image | grayscale_image |
 | `GaussianBlur` | Aplica desenfoque gaussiano | input_image | blurred_image |
 | `CannyEdge` | Detecta bordes con Canny | input_image | edge_image |
 | `Threshold` | Umbralización binaria/adaptativa | input_image | threshold_image |
 | `Histogram` | Calcula y visualiza histograma | input_image | histogram_data |
-| `HoughLines` | Detecta líneas con Hough | edge_image | lines_data |
+| `HoughLines` | Detecta líneas con Hough | edge_image, base_image | lines_data |
 | `Morphology` | Operaciones morfológicas | input_image | morphed_image |
 | `Contours` | Detecta contornos | input_image | contours_data, contour_image |
 | `ColorSpace` | Convierte espacios de color | input_image | converted_image |
 | `OverlayLines` | Visualiza líneas sobre imagen | base_image, lines_data | overlay_image |
+
+### Filtros Avanzados
+
+| Filtro | Descripción | Inputs | Outputs |
+|--------|-------------|--------|---------|
+| `NormalizePeaks` | Normaliza imagen por picos de histograma | input_image | normalized_image |
+| `MinArcLength` | Filtra contornos por longitud mínima de arco | edge_image, base_image | filtered_edges |
+| `DenoiseNLMeans` | Reducción de ruido Non-Local Means | input_image | denoised_image |
+| `ThresholdAdvanced` | Umbralización con OTSU y adaptativa | input_image | threshold_image |
+| `MorphologyAdvanced` | Morfología con TopHat, BlackHat e inversión | input_image | morphed_image |
+| `ContourSimplify` | Simplifica contornos con approxPolyDP | input_image | contours_data |
+| `HistogramVisualize` | Visualiza histograma con marcadores | input_image | histogram_data |
+
+### Filtros de Detección de Bordes de Página
+
+| Filtro | Descripción | Inputs | Outputs |
+|--------|-------------|--------|---------|
+| `ClassifyLinesByAngle` | Clasifica líneas en horizontales/verticales | lines_data, base_image | horizontal_lines, vertical_lines |
+| `SelectBorderLines` | Selecciona líneas extremas de borde | horizontal_lines, vertical_lines, base_image | selected_lines, selection_metadata |
+| `CalculateQuadCorners` | Calcula 4 esquinas del polígono | selected_lines, selection_metadata, base_image | corners |
 
 ## Conceptos Clave
 
@@ -359,13 +416,24 @@ El mismo filtro puede usarse múltiples veces en el pipeline con diferentes par�
 }
 ```
 
+### Dimensiones de Imagen
+Si el pipeline incluye un `Resize`, los filtros que necesitan dimensiones deben usar una imagen de referencia del pipeline, no `original_image`:
+
+```python
+# Incorrecto
+h, w = original_image.shape[:2]
+
+# Correcto
+base_img = inputs.get("base_image", original_image)
+h, w = base_img.shape[:2]
+```
+
 ## Scripts Disponibles
 
 | Script | Propósito |
 |--------|-----------|
-| `param_configurator.py` | Configurador GUI principal (valida sincronización automáticamente) |
+| `param_configurator.py` | Configurador GUI principal |
 | `sync_pipeline_params.py` | Sincronizador de pipeline.json ↔ params.json |
-| `filter_library.py` | Biblioteca de filtros |
 
 ## Comandos Útiles
 
@@ -394,6 +462,5 @@ python param_configurator.py --clear-cache
 
 ## Documentación Adicional
 
-- **[README_SINCRONIZACION.md](docs/README_SINCRONIZACION.md)** - Guía completa del sistema de sincronización
-- **[FILTER_REFERENCE.md](docs/FILTER_REFERENCE.md)** - Referencia rápida para crear filtros
-- **[FILTER_DEVELOPMENT_GUIDE.md](docs/FILTER_DEVELOPMENT_GUIDE.md)** - Guía técnica detallada para desarrolladores
+- **[FILTER_REFERENCE.md](FILTER_REFERENCE.md)** - Referencia rápida para crear filtros
+- **[FILTER_DEVELOPMENT_GUIDE.md](FILTER_DEVELOPMENT_GUIDE.md)** - Guía técnica detallada para desarrolladores

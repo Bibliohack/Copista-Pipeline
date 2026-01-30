@@ -1,8 +1,8 @@
-# Guía Técnica: Creación de Filtros para filter_library.py
+# Guía Técnica: Creación de Filtros para filter_library
 
 ## Resumen
 
-Este documento explica cómo crear nuevos filtros para el sistema de procesamiento de imágenes. Cada filtro es una clase Python que hereda de `BaseFilter` y se registra automáticamente en el sistema.
+Este documento explica cómo crear nuevos filtros para el sistema de procesamiento de imágenes. Cada filtro es una clase Python que hereda de `BaseFilter`, se ubica en su propio archivo y se registra automáticamente en el sistema.
 
 ---
 
@@ -22,22 +22,54 @@ Imagen Original
   Resultado Final
 ```
 
-### Archivos involucrados
+### Estructura de archivos
 
-| Archivo | Función |
-|---------|---------|
-| `filter_library.py` | Contiene todas las clases de filtros |
-| `pipeline.json` | Define qué filtros usar y cómo conectarlos |
-| `params.json` | Almacena los valores de parámetros configurados |
-| `param_configurator.py` | GUI para ajustar parámetros y visualizar resultados |
+```
+proyecto/
+├── filter_library/
+│   ├── __init__.py              # Exporta todos los filtros
+│   ├── base_filter.py           # Clase base y FILTER_REGISTRY
+│   ├── resize_filter.py         # Un filtro por archivo
+│   ├── grayscale_filter.py
+│   ├── gaussian_blur_filter.py
+│   ├── canny_edge_filter.py
+│   ├── ...
+│   └── mi_nuevo_filtro.py       # Tu nuevo filtro
+├── pipeline.json                # Define qué filtros usar y cómo conectarlos
+├── params.json                  # Almacena los valores de parámetros configurados
+└── param_configurator.py        # GUI para ajustar parámetros y visualizar resultados
+```
+
+### Convención de nombres
+
+| Clase | Archivo |
+|-------|---------|
+| `MiFiltro` | `mi_filtro.py` |
+| `GaussianBlurFilter` | `gaussian_blur_filter.py` |
+| `CannyEdgeFilter` | `canny_edge_filter.py` |
+| `ThresholdAdvanced` | `threshold_advanced.py` |
+
+Se usa **snake_case** para archivos, **PascalCase** para clases.
 
 ---
 
-## Estructura de un Filtro
+## Crear un Nuevo Filtro
 
-### Plantilla básica
+### Paso 1: Crear el archivo
+
+Crear `filter_library/mi_filtro.py`:
 
 ```python
+"""
+Filtro: MiFiltro
+"""
+
+import cv2
+import numpy as np
+from typing import Dict, Any, List, Tuple
+from .base_filter import BaseFilter, FILTER_REGISTRY
+
+
 class MiFiltro(BaseFilter):
     """Descripción breve del filtro"""
     
@@ -99,7 +131,44 @@ class MiFiltro(BaseFilter):
             "mi_resultado": resultado,
             "sample_image": resultado  # Para visualización
         }
+    
+    # === MÉTODOS AUXILIARES (opcionales) ===
+    
+    def _hacer_algo(self, img, valor):
+        """Método privado auxiliar"""
+        # ...
+        return img
 ```
+
+### Paso 2: Registrar en \_\_init\_\_.py
+
+Editar `filter_library/__init__.py` y agregar:
+
+```python
+# En la sección de imports
+from .mi_filtro import MiFiltro
+
+# En la lista __all__
+__all__ = [
+    # ... otros filtros ...
+    "MiFiltro",
+]
+```
+
+### Paso 3: Usar en pipeline.json
+
+```json
+{
+    "3": {
+        "filter_name": "MiFiltro",
+        "inputs": {
+            "input_image": "2.otra_salida"
+        }
+    }
+}
+```
+
+¡Listo! El filtro se registra automáticamente al importar el módulo.
 
 ---
 
@@ -151,6 +220,9 @@ INPUTS = {
 | `"lines"` | Lista de líneas detectadas | Salida de HoughLines |
 | `"contours"` | Lista de contornos | Salida de detección de contornos |
 | `"histogram"` | Datos de histograma | Salida de cálculo de histograma |
+| `"border_lines"` | Líneas de borde seleccionadas | Salida de SelectBorderLines |
+| `"quad_points"` | 4 puntos de un cuadrilátero | Salida de CalculateQuadCorners |
+| `"metadata"` | Diccionario con metadatos | Información adicional del procesamiento |
 
 **Si el filtro no necesita inputs de otros filtros:**
 ```python
@@ -363,6 +435,57 @@ def process(self, inputs, original_image):
 
 ---
 
+## Consideraciones sobre Dimensiones de Imagen
+
+### Problema con original_image
+
+Si el pipeline incluye un filtro `Resize`, las dimensiones de `original_image` no coincidirán con las de las imágenes procesadas. 
+
+**Incorrecto:**
+```python
+def process(self, inputs, original_image):
+    h, w = original_image.shape[:2]  # ¡Dimensiones incorrectas!
+    # ...
+```
+
+**Correcto - usar imagen de referencia del pipeline:**
+```python
+INPUTS = {
+    "base_image": "image",  # Imagen de referencia para dimensiones
+    "lines_data": "lines"
+}
+
+def process(self, inputs, original_image):
+    base_img = inputs.get("base_image", original_image)
+    h, w = base_img.shape[:2]  # Dimensiones correctas
+    # ...
+```
+
+---
+
+## Imports Necesarios
+
+Cada archivo de filtro debe incluir sus propios imports:
+
+```python
+"""
+Filtro: MiFiltro
+"""
+
+import cv2
+import numpy as np
+from typing import Dict, Any, List, Tuple
+from .base_filter import BaseFilter, FILTER_REGISTRY
+
+# Imports adicionales según necesidad:
+import warnings  # Si usas warnings.warn()
+import math      # Si usas funciones matemáticas
+```
+
+**Nota:** Los imports no se heredan de otros archivos. Cada módulo debe importar explícitamente lo que usa.
+
+---
+
 ## Compatibilidad con el Sistema de Cache
 
 ### Restricción importante
@@ -389,27 +512,25 @@ OUTPUTS = {
 }
 ```
 
-### Validación automática
-
-El sistema valida automáticamente al intentar establecer un checkpoint:
-
-```python
-@staticmethod
-def filter_outputs_only_images(filter_class) -> bool:
-    """Retorna True si todos los outputs son de tipo 'image'"""
-    for output_name, output_type in filter_class.OUTPUTS.items():
-        if output_type != "image":
-            return False
-    return True
-```
-
 ---
 
 ## Ejemplos Completos
 
 ### Ejemplo 1: Filtro simple de imagen
 
+Archivo: `filter_library/invert_filter.py`
+
 ```python
+"""
+Filtro: InvertFilter
+"""
+
+import cv2
+import numpy as np
+from typing import Dict, Any, List, Tuple
+from .base_filter import BaseFilter, FILTER_REGISTRY
+
+
 class InvertFilter(BaseFilter):
     """Invierte los colores de la imagen"""
     
@@ -439,7 +560,19 @@ class InvertFilter(BaseFilter):
 
 ### Ejemplo 2: Filtro con múltiples parámetros
 
+Archivo: `filter_library/bilateral_filter.py`
+
 ```python
+"""
+Filtro: BilateralFilter
+"""
+
+import cv2
+import numpy as np
+from typing import Dict, Any, List, Tuple
+from .base_filter import BaseFilter, FILTER_REGISTRY
+
+
 class BilateralFilter(BaseFilter):
     """Filtro bilateral para suavizado preservando bordes"""
     
@@ -496,7 +629,19 @@ class BilateralFilter(BaseFilter):
 
 ### Ejemplo 3: Filtro que produce datos estructurados
 
+Archivo: `filter_library/circle_detector.py`
+
 ```python
+"""
+Filtro: CircleDetector
+"""
+
+import cv2
+import numpy as np
+from typing import Dict, Any, List, Tuple
+from .base_filter import BaseFilter, FILTER_REGISTRY
+
+
 class CircleDetector(BaseFilter):
     """Detecta círculos usando la transformada de Hough"""
     
@@ -607,7 +752,19 @@ class CircleDetector(BaseFilter):
 
 ### Ejemplo 4: Filtro que combina múltiples inputs
 
+Archivo: `filter_library/blend_images.py`
+
 ```python
+"""
+Filtro: BlendImages
+"""
+
+import cv2
+import numpy as np
+from typing import Dict, Any, List, Tuple
+from .base_filter import BaseFilter, FILTER_REGISTRY
+
+
 class BlendImages(BaseFilter):
     """Mezcla dos imágenes con transparencia ajustable"""
     
@@ -688,6 +845,8 @@ Una vez creado el filtro, se usa en `pipeline.json` así:
 
 ## Checklist para Nuevo Filtro
 
+- [ ] Crear archivo `filter_library/mi_filtro.py`
+- [ ] Incluir imports necesarios (cv2, numpy, typing, base_filter)
 - [ ] La clase hereda de `BaseFilter`
 - [ ] `FILTER_NAME` es único y en PascalCase
 - [ ] `DESCRIPTION` describe claramente la función
@@ -696,6 +855,8 @@ Una vez creado el filtro, se usa en `pipeline.json` así:
 - [ ] `PARAMS` tiene `default`, `min`, `max`, `step`, `description` para cada parámetro
 - [ ] `process()` retorna **todos** los outputs definidos
 - [ ] `process()` maneja el caso donde `inputs` puede estar vacío
+- [ ] Agregar import en `filter_library/__init__.py`
+- [ ] Agregar a la lista `__all__` en `__init__.py`
 - [ ] Si produce solo imágenes, es compatible con checkpoint
 - [ ] Los valores de parámetros se validan/corrigen si es necesario (ej: kernel impar)
 
@@ -713,4 +874,4 @@ class BaseFilter(ABC):
             FILTER_REGISTRY[cls.FILTER_NAME] = cls
 ```
 
-Simplemente define la clase en `filter_library.py` y estará disponible.
+El filtro se registra automáticamente cuando se importa. Por eso es necesario agregar el import en `__init__.py`.
