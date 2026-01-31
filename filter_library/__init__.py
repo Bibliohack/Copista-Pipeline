@@ -27,6 +27,7 @@ from .classify_lines_by_angle import ClassifyLinesByAngle
 from .select_border_lines import SelectBorderLines
 from .calculate_quad_corners import CalculateQuadCorners
 from .detect_page_skew import DetectPageSkew
+from .scale_quad_corners import ScaleQuadCorners
 
 # Lista de todos los filtros disponibles
 __all__ = [
@@ -55,6 +56,7 @@ __all__ = [
     "SelectBorderLines",
     "CalculateQuadCorners",
     "DetectPageSkew",
+    "ScaleQuadCorners",
 ]
 
 
