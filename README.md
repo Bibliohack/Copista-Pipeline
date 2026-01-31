@@ -112,6 +112,8 @@ Define la cadena de filtros a aplicar. Cada filtro tiene:
 
 **Formato de referencias:** `"filter_id.nombre_output"`
 
+**Referencia especial:** Use `"original.image"` para referenciar la imagen original sin procesar.
+
 **El orden de los filtros en el JSON determina el orden de ejecución.**
 
 ```json

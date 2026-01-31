@@ -335,6 +335,10 @@ class PipelineProcessor:
                 
                 source_id, output_name = source.split('.', 1)
                 
+                # Permitir referencia especial a imagen original
+                if source_id == "original":
+                    continue  # Válido, es la palabra reservada para imagen original
+                
                 # Validar que el filtro fuente existe
                 if source_id not in self.pipeline:
                     errors.append(f"Filtro {filter_id}: referencia a filtro inexistente '{source_id}'")
@@ -364,7 +368,11 @@ class PipelineProcessor:
         inputs = {}
         for input_name, source in inputs_config.items():
             source_id, output_name = source.split('.', 1)
-            if source_id in self.filter_outputs:
+            
+            # Manejar referencia a imagen original
+            if source_id == "original":
+                inputs[input_name] = original_image
+            elif source_id in self.filter_outputs:
                 inputs[input_name] = self.filter_outputs[source_id].get(output_name)
         
         # Procesar el filtro
