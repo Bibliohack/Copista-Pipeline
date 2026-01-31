@@ -10,7 +10,7 @@ pip install opencv-python numpy
 
 # Crear los archivos de configuración desde los ejemplos
 cp samples/pipeline.json pipeline.json
-cp samples/checkpoint.json checkpoint.json
+cp samples/checkpoints.json checkpoints.json
 cp samples/params.json params.json
 
 # Ejecutar el configurador GUI
@@ -29,7 +29,7 @@ python param_configurator.py --clear-cache
 image_filter_system/
 ├── pipeline.json           # Define qué filtros aplicar y sus conexiones
 ├── params.json             # Parámetros guardados de los filtros
-├── checkpoint.json         # Configuración del checkpoint de cache
+├── checkpoints.json         # Configuración del checkpoint de cache
 ├── filter_library/         # Biblioteca de filtros disponibles
 │   ├── __init__.py
 │   ├── base_filter.py
@@ -62,44 +62,22 @@ image_filter_system/
 
 ## Sistema de Cache (Checkpoints)
 
-El sistema permite marcar un filtro como "checkpoint" para acelerar el procesamiento.
+El sistema permite marcar filtros como "checkpoints" para acelerar el procesamiento.
 
 ### Funcionamiento
 
-1. **Marcar checkpoint**: Presiona `c` en el filtro deseado (ej: filtro `blur`)
+1. **Marcar como checkpoint**: Presionando `c` en el filtro deseado (ej: filtro `blur`) se agrega/quita de la lista de checkpoints
 2. **Generación de cache**: Al navegar imágenes, se guarda automáticamente el resultado del checkpoint en `.cache/{filtro_id}/{imagen}.png`
-3. **Uso del cache**: Si estás visualizando un filtro posterior al checkpoint (ej: filtro `canny`), los filtros anteriores no se ejecutan - se carga directamente desde cache
+3. **Uso del cache**: Si estás visualizando un filtro posterior al último checkpoint (ej: filtro `canny`), los filtros anteriores no se ejecutan - se carga directamente desde cache
 
-### Solo un checkpoint activo
+### Modificación de parámetros previos al último checkpoint
 
-Solo puede haber un checkpoint a la vez. Si marcas otro filtro como checkpoint, el anterior se elimina junto con su cache.
-
-### Modificación de parámetros pre-checkpoint
-
-Si modificas parámetros de un filtro anterior o igual al checkpoint:
+Si modificas parámetros de un filtro anterior o igual al último checkpoint:
 - El cache se **ignora temporalmente** (verás los cambios en tiempo real)
 - El cache **no se borra** hasta que guardes con `s`
 - Al guardar, se muestra una advertencia y se borra el cache
 
-### Ejemplo de uso
-
-```
-Pipeline: [resize] → [grayscale] → [blur] → [canny] → [hough] → [overlay]
-                                      ↑
-                                 CHECKPOINT
-
-- Visualizando filtro 'overlay', navegando imágenes con 'a'/'d':
-  → Filtros resize, grayscale, blur NO se ejecutan (se usa cache de blur)
-  → Solo se ejecutan filtros canny, hough, overlay
-
-- Retrocediendo a filtro 'grayscale' con BACKSPACE:
-  → Se ejecutan filtros resize, grayscale (el cache no aplica)
-
-- Modificando parámetros del filtro 'grayscale':
-  → ignore_cache = True
-  → Se ejecuta todo el pipeline
-  → Al guardar con 's': advertencia + borrado de cache
-```
+Ver mas detalle en [Documentacion/FUNCIONAMIENTO_DE_CACHE_Y_CHECKPOINTS.md](Documentacion/FUNCIONAMIENTO_DE_CACHE_Y_CHECKPOINTS.md)
 
 ## Archivos de Configuración
 
@@ -198,12 +176,15 @@ Los parámetros se guardan por ID del filtro:
 
 Si modificas `pipeline.json`, ejecuta `sync_pipeline_params.py` para mantener sincronización.
 
-### checkpoint.json - Configuración del Checkpoint
+### checkpoints.json - Configuración del Checkpoint
 
 ```json
 {
-    "checkpoint_filter": "blur",
-    "last_modified": "2024-01-15T10:30:00"
+    "checkpoints": [
+        "resize",
+        "denoise"
+    ],
+    "last_modified": "2025-01-31T10:30:00"
 }
 ```
 
@@ -354,5 +335,5 @@ python param_configurator.py --clear-cache
 
 ## Documentación Adicional
 
-- **[FILTER_REFERENCE.md](docs/FILTER_REFERENCE.md)** - Referencia rápida para crear filtros
-- **[FILTER_DEVELOPMENT_GUIDE.md](docs/FILTER_DEVELOPMENT_GUIDE.md)** - Guía técnica detallada
+- **[FILTER_REFERENCE.md](Documentacion/FILTER_REFERENCE.md)** - Referencia rápida para crear filtros
+- **[FILTER_DEVELOPMENT_GUIDE.md](Documentacion/FILTER_DEVELOPMENT_GUIDE.md)** - Guía técnica detallada

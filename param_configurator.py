@@ -1,6 +1,11 @@
 """
-Configurador GUI de Parámetros de Filtros
-=========================================
+Configurador GUI de Parámetros de Filtros - VERSIÓN MULTI-CHECKPOINT
+====================================================================
+
+CAMBIOS PRINCIPALES:
+- Soporte para múltiples checkpoints (antes solo uno)
+- Lógica ultra-simple: si modificas <= último checkpoint, borrar TODO el cache
+- Toggle de checkpoints con 'c' agrega/quita del conjunto
 
 IMPORTANTE: Esta versión usa IDs de filtros en lugar de índices numéricos.
 Los filtros se ordenan por su posición en pipeline.json.
@@ -18,7 +23,7 @@ Controles:
     UP/DOWN     - Navegar parámetros del filtro actual
     LEFT/RIGHT  - Decrementar/incrementar valor del parámetro seleccionado
     PgUp/PgDown - Cambiar qué filtro estamos editando (sin cambiar visualización)
-    c           - Marcar/desmarcar filtro actual como checkpoint
+    c           - Agregar/quitar filtro actual como checkpoint
     s           - Guardar parámetros en params.json
     r           - Recargar parámetros desde params.json
     h           - Mostrar ayuda del filtro actual
@@ -59,64 +64,96 @@ def check_python_version():
 
 
 class CacheManager:
-    """Maneja el sistema de cache de filtros"""
+    """Maneja el sistema de cache de filtros - VERSIÓN MULTI-CHECKPOINT"""
     
     # Tipos de output que se consideran "imagen" y pueden ser cacheados
     IMAGE_OUTPUT_TYPES = {"image"}
     
-    def __init__(self, image_folder: Path, checkpoint_path: Path):
+    def __init__(self, image_folder: Path, checkpoints_path: Path, processor=None):
         self.image_folder = image_folder
         self.cache_folder = image_folder / ".cache"
-        self.checkpoint_path = checkpoint_path
-        self.checkpoint_filter: Optional[str] = None
+        self.checkpoints_path = checkpoints_path
+        self.checkpoints: List[str] = []  # ← CAMBIO: Lista en lugar de string único
+        self.processor = processor  # ← NUEVO: Necesitamos acceso al processor
         
         self.load_checkpoint()
     
+    def set_processor(self, processor):
+        """Establece el processor después de la inicialización"""
+        self.processor = processor
+    
     def load_checkpoint(self):
-        """Carga la configuración de checkpoint desde JSON"""
+        """Carga la configuración de checkpoints desde JSON"""
         try:
-            with open(self.checkpoint_path, 'r') as f:
+            with open(self.checkpoints_path, 'r') as f:
                 data = json.load(f, object_pairs_hook=OrderedDict)
-                self.checkpoint_filter = data.get('checkpoint_filter')
-            if self.checkpoint_filter:
-                print(f"Checkpoint cargado: filtro {self.checkpoint_filter}")
+                # ← CAMBIO: Cargar lista en lugar de string único
+                self.checkpoints = data.get('checkpoints', [])
+            if self.checkpoints:
+                print(f"Checkpoints cargados: {', '.join(self.checkpoints)}")
         except FileNotFoundError:
-            self.checkpoint_filter = None
+            self.checkpoints = []
         except json.JSONDecodeError:
-            self.checkpoint_filter = None
+            self.checkpoints = []
     
     def save_checkpoint(self):
-        """Guarda la configuración de checkpoint a JSON"""
+        """Guarda la configuración de checkpoints a JSON"""
         data = {
-            "checkpoint_filter": self.checkpoint_filter,
+            "checkpoints": self.checkpoints,  # ← CAMBIO: Guardar lista
             "last_modified": datetime.now().isoformat()
         }
-        with open(self.checkpoint_path, 'w') as f:
+        with open(self.checkpoints_path, 'w') as f:
             json.dump(data, f, indent=4)
     
-    def set_checkpoint(self, filter_id: Optional[str]):
-        """Establece o elimina el checkpoint"""
-        old_checkpoint = self.checkpoint_filter
-        self.checkpoint_filter = filter_id
-        self.save_checkpoint()
-        
-        # Si había un checkpoint anterior diferente, eliminar todo el cache
-        if old_checkpoint and old_checkpoint != filter_id:
-            self.clear_all_cache()
-            print(f"Cache anterior eliminado (checkpoint cambió de {old_checkpoint} a {filter_id})")
-        
-        if filter_id:
-            print(f"Checkpoint establecido en filtro {filter_id}")
+    def toggle_checkpoint(self, filter_id: str) -> bool:
+        """
+        Agrega o quita un checkpoint de la lista.
+        Retorna True si la operación fue exitosa.
+        """
+        if filter_id in self.checkpoints:
+            # Quitar checkpoint
+            self.checkpoints.remove(filter_id)
+            self.save_checkpoint()
+            print(f"Checkpoint removido: {filter_id}")
+            return True
         else:
-            print("Checkpoint eliminado")
+            # Agregar checkpoint - validar primero
+            if self.processor is None:
+                print("Error: Processor no disponible para validación")
+                return False
+            
+            is_valid, error_msg = CacheManager.validate_checkpoint_filters(
+                self.processor.pipeline, filter_id, self.processor.filter_order
+            )
+            
+            if not is_valid:
+                print(f"\n⚠️  No se puede establecer checkpoint aquí:")
+                print(f"   {error_msg}")
+                print(f"   Solo se puede hacer checkpoint en filtros donde todos los anteriores produzcan imágenes.\n")
+                return False
+            
+            # Agregar y ordenar
+            self.checkpoints.append(filter_id)
+            # Ordenar por filter_order para mantener consistencia
+            self.checkpoints.sort(key=lambda x: self.processor.filter_order.get(x, 999))
+            self.save_checkpoint()
+            print(f"Checkpoint agregado: {filter_id}")
+            return True
     
-    def get_checkpoint(self) -> Optional[str]:
-        """Retorna el filtro checkpoint actual"""
-        return self.checkpoint_filter
+    def get_last_checkpoint(self) -> Optional[str]:
+        """
+        Retorna el último checkpoint (el de mayor order).
+        Este es el checkpoint crítico para la invalidación del cache.
+        """
+        if not self.checkpoints or self.processor is None:
+            return None
+        
+        return max(self.checkpoints, 
+                   key=lambda cp: self.processor.filter_order.get(cp, -1))
     
-    def has_checkpoint(self) -> bool:
-        """Verifica si hay un checkpoint definido"""
-        return self.checkpoint_filter is not None
+    def has_checkpoints(self) -> bool:
+        """Verifica si hay checkpoints definidos"""
+        return len(self.checkpoints) > 0
     
     def get_cache_path(self, filter_id: str, image_name: str) -> Path:
         """Obtiene el path del cache para una imagen y filtro específicos"""
@@ -128,17 +165,6 @@ class CacheManager:
         """Verifica si existe cache para una imagen y filtro"""
         cache_path = self.get_cache_path(filter_id, image_name)
         return cache_path.exists()
-    
-    def all_cache_exists_up_to(self, checkpoint_id: str, image_name: str, 
-                               sorted_ids: List[str], filter_order: Dict[str, int]) -> bool:
-        """Verifica si existe cache para todos los filtros hasta el checkpoint (inclusive)"""
-        checkpoint_order = filter_order.get(checkpoint_id, 999)
-        for filter_id in sorted_ids:
-            if filter_order.get(filter_id, 999) > checkpoint_order:
-                break
-            if not self.cache_exists(filter_id, image_name):
-                return False
-        return True
     
     def load_from_cache(self, filter_id: str, image_name: str) -> Optional[np.ndarray]:
         """Carga una imagen desde el cache"""
@@ -386,6 +412,7 @@ class PipelineProcessor:
                                   ignore_cache: bool = False) -> Dict[str, Any]:
         """
         Procesa todos los filtros hasta el ID especificado, usando cache si está disponible.
+        VERSIÓN MULTI-CHECKPOINT: Usa el checkpoint válido más cercano anterior al target.
         
         Args:
             target_id: ID del filtro objetivo
@@ -401,61 +428,91 @@ class PipelineProcessor:
         
         sorted_ids = self.get_sorted_ids()
         target_order = self.filter_order.get(target_id, 999)
-        checkpoint = cache_manager.get_checkpoint()
-        checkpoint_order = self.filter_order.get(checkpoint, -1) if checkpoint else -1
         
-        # Determinar si podemos usar cache
-        use_cache = (
-            checkpoint is not None and
-            not ignore_cache and
-            target_order >= checkpoint_order and
-            cache_manager.all_cache_exists_up_to(checkpoint, image_name, sorted_ids, self.filter_order)
-        )
-        
-        if use_cache:
-            # Cargar desde cache TODOS los filtros hasta el checkpoint
-            all_loaded = True
+        # Si no hay checkpoints o estamos ignorando cache, procesar todo normalmente
+        if ignore_cache or not cache_manager.has_checkpoints():
             for filter_id in sorted_ids:
-                if self.filter_order.get(filter_id, 999) > checkpoint_order:
+                if self.filter_order.get(filter_id, 999) > target_order:
                     break
+                self.process_filter(filter_id, original_image)
                 
+                # Cachear si es checkpoint (solo si no estamos ignorando cache)
+                if not ignore_cache and filter_id in cache_manager.checkpoints:
+                    if not cache_manager.cache_exists(filter_id, image_name):
+                        sample = self.filter_outputs.get(filter_id, {}).get('sample_image')
+                        if sample is not None:
+                            cache_manager.save_to_cache(filter_id, image_name, sample)
+            
+            return self.filter_outputs.get(target_id, {})
+        
+        # Encontrar checkpoints aplicables (anteriores al target y con cache disponible)
+        applicable_checkpoints = [
+            cp for cp in cache_manager.checkpoints
+            if (self.filter_order.get(cp, 999) < target_order and
+                cache_manager.cache_exists(cp, image_name))
+        ]
+        
+        if not applicable_checkpoints:
+            # No hay checkpoints con cache disponible, procesar desde el inicio
+            for filter_id in sorted_ids:
+                if self.filter_order.get(filter_id, 999) > target_order:
+                    break
+                self.process_filter(filter_id, original_image)
+                
+                # Cachear si es checkpoint
+                if filter_id in cache_manager.checkpoints:
+                    if not cache_manager.cache_exists(filter_id, image_name):
+                        sample = self.filter_outputs.get(filter_id, {}).get('sample_image')
+                        if sample is not None:
+                            cache_manager.save_to_cache(filter_id, image_name, sample)
+            
+            return self.filter_outputs.get(target_id, {})
+        
+        # Usar el checkpoint más cercano (el último de la lista)
+        start_checkpoint = applicable_checkpoints[-1]
+        start_order = self.filter_order.get(start_checkpoint, -1)
+        
+        # Cargar desde cache todos los filtros hasta start_checkpoint (inclusive)
+        for filter_id in sorted_ids:
+            order = self.filter_order.get(filter_id, 999)
+            if order > start_order:
+                break
+            
+            # Solo cargar checkpoints que tengan cache
+            if filter_id in cache_manager.checkpoints:
                 cached_image = cache_manager.load_from_cache(filter_id, image_name)
                 if cached_image is not None:
-                    # Crear outputs desde cache
                     main_output_name = self._get_main_output_name(filter_id)
                     self.filter_outputs[filter_id] = {
                         "sample_image": cached_image,
                         main_output_name: cached_image
                     }
                 else:
-                    all_loaded = False
-                    break
-            
-            if all_loaded:
-                # Procesar solo los filtros después del checkpoint
-                for filter_id in sorted_ids:
-                    if self.filter_order.get(filter_id, 999) <= checkpoint_order:
-                        continue
-                    if self.filter_order.get(filter_id, 999) > target_order:
-                        break
+                    # Si un checkpoint no tiene cache, procesar desde aquí
                     self.process_filter(filter_id, original_image)
-                
-                return self.filter_outputs.get(target_id, {})
+                    sample = self.filter_outputs.get(filter_id, {}).get('sample_image')
+                    if sample is not None:
+                        cache_manager.save_to_cache(filter_id, image_name, sample)
+            else:
+                # Filtro normal (no checkpoint), procesar normalmente
+                self.process_filter(filter_id, original_image)
         
-        # Procesar normalmente (sin cache o cache no disponible)
+        # Procesar desde start_checkpoint+1 hasta target
         for filter_id in sorted_ids:
-            if self.filter_order.get(filter_id, 999) > target_order:
+            order = self.filter_order.get(filter_id, 999)
+            if order <= start_order:
+                continue
+            if order > target_order:
                 break
+            
             self.process_filter(filter_id, original_image)
             
-            # Si estamos dentro del rango del checkpoint y no estamos ignorando cache,
-            # guardar cache para cada filtro hasta el checkpoint
-            if checkpoint is not None and not ignore_cache:
-                if self.filter_order.get(filter_id, 999) <= checkpoint_order:
-                    if not cache_manager.cache_exists(filter_id, image_name):
-                        sample = self.filter_outputs.get(filter_id, {}).get('sample_image')
-                        if sample is not None:
-                            cache_manager.save_to_cache(filter_id, image_name, sample)
+            # Cachear si es checkpoint
+            if filter_id in cache_manager.checkpoints:
+                if not cache_manager.cache_exists(filter_id, image_name):
+                    sample = self.filter_outputs.get(filter_id, {}).get('sample_image')
+                    if sample is not None:
+                        cache_manager.save_to_cache(filter_id, image_name, sample)
         
         return self.filter_outputs.get(target_id, {})
     
@@ -572,19 +629,19 @@ class ImageBrowser:
 
 
 class ParamConfigurator:
-    """Interfaz GUI principal"""
+    """Interfaz GUI principal - VERSIÓN MULTI-CHECKPOINT"""
     
     WINDOW_RESULT = "Resultado del Filtro"
     WINDOW_PARAMS = "Parametros"
     
     def __init__(self, image_folder: str, pipeline_path: str = "pipeline.json", 
-                 params_path: str = "params.json", checkpoint_path: str = "checkpoint.json",
+                 params_path: str = "params.json", checkpoints_path: str = "checkpoints.json",
                  clear_cache: bool = False):
         
         self.image_folder = Path(image_folder)
         self.browser = ImageBrowser(image_folder)
         self.processor = PipelineProcessor(pipeline_path, params_path)
-        self.cache_manager = CacheManager(self.image_folder, Path(checkpoint_path))
+        self.cache_manager = CacheManager(self.image_folder, Path(checkpoints_path), self.processor)
         
         # Limpiar cache si se solicita
         if clear_cache:
@@ -642,7 +699,7 @@ class ParamConfigurator:
         return list(instance.PARAMS.items())
     
     def render_params_window(self):
-        """Renderiza la ventana de parámetros"""
+        """Renderiza la ventana de parámetros - VERSIÓN MULTI-CHECKPOINT"""
         sorted_ids = self.processor.get_sorted_ids()
         if not sorted_ids:
             return
@@ -672,43 +729,48 @@ class ParamConfigurator:
         cv2.putText(param_img, img_info, (10, y), font, 0.4, (200, 200, 200), 1)
         y += 20
         
-        # Info de checkpoint
-        checkpoint = self.cache_manager.get_checkpoint()
-        if checkpoint:
-            checkpoint_name = self.processor.get_filter_name(checkpoint)
+        # ← CAMBIO: Info de checkpoints (múltiples)
+        checkpoints = self.cache_manager.checkpoints
+        if checkpoints:
+            # Mostrar lista de checkpoints
+            checkpoint_names = [f"{cp} ({self.processor.get_filter_name(cp)})" for cp in checkpoints]
+            checkpoint_text = f"Checkpoints ({len(checkpoints)}): {', '.join(checkpoint_names[:2])}"
+            if len(checkpoints) > 2:
+                checkpoint_text += f", +{len(checkpoints)-2}"
+            
             checkpoint_color = (0, 165, 255)
             if self.ignore_cache:
-                checkpoint_text = f"Checkpoint: {checkpoint} ({checkpoint_name}) [IGNORADO]"
+                checkpoint_text += " [IGNORADOS]"
                 checkpoint_color = (0, 100, 255)
-            else:
-                cache_complete = self.cache_manager.all_cache_exists_up_to(
-                    checkpoint,
-                    self.browser.get_current_name(),
-                    sorted_ids,
-                    self.processor.filter_order
-                )
-                cache_status = "CACHED" if cache_complete else "SIN CACHE"
-                checkpoint_text = f"Checkpoint: {checkpoint} ({checkpoint_name}) [{cache_status}]"
-            cv2.putText(param_img, checkpoint_text, (10, y), font, 0.4, checkpoint_color, 1)
+            
+            cv2.putText(param_img, checkpoint_text, (10, y), font, 0.35, checkpoint_color, 1)
+            
+            # Mostrar último checkpoint en segunda línea
+            y += 18
+            last_checkpoint = self.cache_manager.get_last_checkpoint()
+            if last_checkpoint:
+                last_checkpoint_name = self.processor.get_filter_name(last_checkpoint)
+                last_text = f"  Ultimo: {last_checkpoint} ({last_checkpoint_name})"
+                cv2.putText(param_img, last_text, (10, y), font, 0.35, checkpoint_color, 1)
         else:
-            cv2.putText(param_img, "Checkpoint: (ninguno)", (10, y), font, 0.4, (150, 150, 150), 1)
+            cv2.putText(param_img, "Checkpoints: (ninguno)", (10, y), font, 0.4, (150, 150, 150), 1)
         y += 20
         
         # Separador
         cv2.line(param_img, (10, y), (490, y), (100, 100, 100), 1)
         y += 15
         
-        # Info de visualización
+        # ← CAMBIO: Info de visualización (indicar si es checkpoint)
         view_name = self.processor.get_filter_name(view_id)
-        is_checkpoint = (view_id == checkpoint)
-        view_color = (0, 165, 255) if is_checkpoint else (0, 255, 255)
-        view_suffix = " [CHECKPOINT]" if is_checkpoint else ""
+        is_view_checkpoint = (view_id in checkpoints)
+        view_color = (0, 165, 255) if is_view_checkpoint else (0, 255, 255)
+        view_suffix = " [CHECKPOINT]" if is_view_checkpoint else ""
         cv2.putText(param_img, f"Viendo: {view_id} ({view_name}){view_suffix}", (10, y), font, 0.5, view_color, 1)
         y += 20
         
-        # Info de edición
+        # ← CAMBIO: Info de edición (indicar si es checkpoint)
         edit_name = self.processor.get_filter_name(edit_id)
-        is_edit_checkpoint = (edit_id == checkpoint)
+        is_edit_checkpoint = (edit_id in checkpoints)
         edit_color = (0, 165, 255) if is_edit_checkpoint else (0, 255, 0)
         edit_suffix = " [CHECKPOINT]" if is_edit_checkpoint else ""
         cv2.putText(param_img, f"Editando: {edit_id} ({edit_name}){edit_suffix}", (10, y), font, 0.5, edit_color, 1)
@@ -774,7 +836,7 @@ class ParamConfigurator:
             "ESPACIO/BACKSPACE: Filtro ant/sig (vista)",
             "PgUp/PgDown: Filtro ant/sig (edicion)",
             "UP/DOWN: Param ant/sig | LEFT/RIGHT: Valor -/+",
-            "c: Marcar/desmarcar checkpoint",
+            "c: Agregar/quitar checkpoint",  # ← CAMBIO: Texto actualizado
             "s: Guardar | r: Recargar | h: Ayuda | q: Salir"
         ]
         
@@ -824,17 +886,26 @@ class ParamConfigurator:
             cv2.rectangle(overlay, (0, 0), (w, 30), (0, 0, 0), -1)
             cv2.addWeighted(overlay, 0.5, display, 0.5, 0, display)
             
-            checkpoint = self.cache_manager.get_checkpoint()
-            checkpoint_indicator = ""
-            if checkpoint is not None and self.processor.is_after(view_id, checkpoint) or view_id == checkpoint:
+            # ← CAMBIO: Indicador de cache más detallado
+            cache_indicator = ""
+            if self.cache_manager.has_checkpoints():
                 if self.ignore_cache:
-                    checkpoint_indicator = " [CACHE:IGNORADO]"
-                elif self.cache_manager.cache_exists(view_id, image_name):
-                    checkpoint_indicator = " [CACHED]"
+                    cache_indicator = " [CACHE:IGNORADO]"
+                elif view_id in self.cache_manager.checkpoints:
+                    if self.cache_manager.cache_exists(view_id, image_name):
+                        cache_indicator = " [CACHED]"
+                    else:
+                        cache_indicator = " [CACHEANDO]"
                 else:
-                    checkpoint_indicator = " [CACHEANDO]"
+                    # Verificar si hay algún checkpoint anterior con cache
+                    last_checkpoint = self.cache_manager.get_last_checkpoint()
+                    if last_checkpoint:
+                        view_order = self.processor.get_filter_order(view_id)
+                        last_checkpoint_order = self.processor.get_filter_order(last_checkpoint)
+                        if view_order > last_checkpoint_order:
+                            cache_indicator = " [POST-CACHE]"
             
-            info_text = f"{view_id}: {filter_name}{checkpoint_indicator} | {self.browser.get_current_name()}"
+            info_text = f"{view_id}: {filter_name}{cache_indicator} | {self.browser.get_current_name()}"
             cv2.putText(display, info_text, (10, 20), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
             
             cv2.imshow(self.WINDOW_RESULT, display)
@@ -842,7 +913,7 @@ class ParamConfigurator:
         self.needs_reprocess = False
     
     def change_param_value(self, delta: int):
-        """Cambia el valor del parámetro seleccionado"""
+        """Cambia el valor del parámetro seleccionado - VERSIÓN ULTRA-SIMPLE"""
         params = self.get_current_filter_params()
         if not params or self.current_param_index >= len(params):
             return
@@ -866,53 +937,49 @@ class ParamConfigurator:
             instance.set_param(param_name, new_value)
             self.needs_reprocess = True
             
-            # Verificar si estamos modificando un filtro anterior o igual al checkpoint
-            checkpoint = self.cache_manager.get_checkpoint()
-            if checkpoint:
-                if not self.processor.is_after(edit_id, checkpoint) or edit_id == checkpoint:
-                    self.ignore_cache = True
-                    self.params_modified_before_checkpoint = True
+            # ← CAMBIO: Lógica ultra-simple con último checkpoint
+            if self.cache_manager.has_checkpoints():
+                last_checkpoint = self.cache_manager.get_last_checkpoint()
+                if last_checkpoint:
+                    edit_order = self.processor.get_filter_order(edit_id)
+                    last_checkpoint_order = self.processor.get_filter_order(last_checkpoint)
+                    
+                    # Si modificamos un filtro <= último checkpoint, invalidar cache
+                    if edit_order <= last_checkpoint_order:
+                        self.ignore_cache = True
+                        self.params_modified_before_checkpoint = True
     
     def toggle_checkpoint(self):
-        """Alterna el checkpoint en el filtro actualmente visualizado"""
+        """Alterna checkpoint en el filtro actualmente visualizado - VERSIÓN MULTI-CHECKPOINT"""
         view_id = self.get_current_view_id()
         if not view_id:
             return
         
-        current_checkpoint = self.cache_manager.get_checkpoint()
+        # Intentar toggle
+        success = self.cache_manager.toggle_checkpoint(view_id)
         
-        if current_checkpoint == view_id:
-            self.cache_manager.set_checkpoint(None)
-        else:
-            is_valid, error_msg = CacheManager.validate_checkpoint_filters(
-                self.processor.pipeline, view_id, self.processor.filter_order
-            )
-            
-            if not is_valid:
-                print(f"\n⚠️  No se puede establecer checkpoint aquí:")
-                print(f"   {error_msg}")
-                print(f"   Solo se puede hacer checkpoint en filtros donde todos los anteriores produzcan imágenes.\n")
-                return
-            
-            self.cache_manager.set_checkpoint(view_id)
-        
-        self.ignore_cache = False
-        self.params_modified_before_checkpoint = False
+        if success:
+            # Reset del estado de invalidación si quitamos el último checkpoint
+            if not self.cache_manager.has_checkpoints():
+                self.ignore_cache = False
+                self.params_modified_before_checkpoint = False
     
     def save_params_with_warning(self) -> bool:
-        """Guarda parámetros con advertencia si hay cambios que afectan al checkpoint"""
+        """
+        Guarda parámetros con advertencia si hay cambios que afectan checkpoints.
+        VERSIÓN ULTRA-SIMPLE: Borra TODO el cache si se modificó <= último checkpoint.
+        """
         if self.ignore_cache and self.params_modified_before_checkpoint:
-            checkpoint = self.cache_manager.get_checkpoint()
             print("\n" + "="*60)
             print("⚠️  ADVERTENCIA")
             print("="*60)
-            print(f"Has modificado parámetros que afectan al checkpoint ({checkpoint}).")
-            print("Guardar los parámetros BORRARÁ todo el cache.")
+            print(f"Has modificado parámetros antes o en el último checkpoint.")
+            print("Guardar los parámetros BORRARÁ TODO el cache de TODOS los checkpoints.")
             print("")
             response = input("¿Deseas continuar? (s/n): ").strip().lower()
             
             if response == 's':
-                self.cache_manager.clear_all_cache()
+                self.cache_manager.clear_all_cache()  # ← Borra TODO
                 self.processor.save_params()
                 self.ignore_cache = False
                 self.params_modified_before_checkpoint = False
@@ -929,10 +996,10 @@ class ParamConfigurator:
     def run(self):
         """Loop principal de la aplicación"""
         print("\n" + "="*60)
-        print("CONFIGURADOR DE FILTROS DE IMAGEN")
+        print("CONFIGURADOR DE FILTROS DE IMAGEN - MULTI-CHECKPOINT")
         print("="*60)
         print("Presiona 'h' para ver ayuda del filtro actual")
-        print("Presiona 'c' para marcar/desmarcar checkpoint")
+        print("Presiona 'c' para agregar/quitar checkpoint")  # ← CAMBIO
         print("Presiona 'q' o ESC para salir")
         print("="*60 + "\n")
         
@@ -1041,12 +1108,12 @@ def main():
     script_dir = Path(__file__).parent
     pipeline_path = script_dir / "pipeline.json"
     params_path = script_dir / "params.json"
-    checkpoint_path = script_dir / "checkpoint.json"
+    checkpoints_path = script_dir / "checkpoints.json"
     
     print(f"Carpeta de imágenes: {image_folder}")
     print(f"Pipeline: {pipeline_path}")
     print(f"Parámetros: {params_path}")
-    print(f"Checkpoint: {checkpoint_path}")
+    print(f"Checkpoint: {checkpoints_path}")
     if clear_cache:
         print("⚠️  Se borrará todo el cache al iniciar")
     
@@ -1070,7 +1137,7 @@ def main():
         image_folder=image_folder,
         pipeline_path=str(pipeline_path),
         params_path=str(params_path),
-        checkpoint_path=str(checkpoint_path),
+        checkpoints_path=str(checkpoints_path),
         clear_cache=clear_cache
     )
     
