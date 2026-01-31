@@ -1,4 +1,22 @@
 """
+Filtros mejorados con metadata de dimensiones de imagen
+========================================================
+
+Todos los filtros que generan datos numéricos (líneas, contornos) ahora
+incluyen un output adicional "*_metadata" con las dimensiones de la imagen
+de referencia.
+
+Esto permite:
+- Escalar coordenadas entre diferentes resoluciones
+- Validar que coordenadas estén dentro de límites
+- Contextualizar métricas como áreas y perímetros
+"""
+
+# ==============================================================================
+# 1. ClassifyLinesByAngle - MEJORADO
+# ==============================================================================
+
+"""
 Filtro: ClassifyLinesByAngle
 """
 
@@ -12,10 +30,10 @@ class ClassifyLinesByAngle(BaseFilter):
     """Clasifica líneas en horizontales, verticales y otras según su ángulo"""
     
     FILTER_NAME = "ClassifyLinesByAngle"
-    DESCRIPTION = "Clasifica líneas detectadas por Hough en horizontales, verticales y otras según tolerancia angular. Soporta formato HoughLines y HoughLinesP."
+    DESCRIPTION = "Clasifica líneas detectadas por Hough en horizontales, verticales y otras según tolerancia angular. Incluye metadata con dimensiones de imagen."
     
     INPUTS = {
-        "base_image": "image",  # <-- AÑADIDO: para visualización
+        "base_image": "image",
         "lines_data": "lines"
     }
     
@@ -23,6 +41,7 @@ class ClassifyLinesByAngle(BaseFilter):
         "horizontal_lines": "lines",
         "vertical_lines": "lines",
         "other_lines": "lines",
+        "lines_metadata": "metadata",  # ✅ NUEVO
         "classified_image": "image",
         "sample_image": "image"
     }
@@ -109,10 +128,8 @@ class ClassifyLinesByAngle(BaseFilter):
         Soporta formato HoughLinesP (ya tiene puntos) y HoughLines (rho, theta).
         """
         if "x1" in line:
-            # Formato HoughLinesP - ya tiene puntos
             return (line["x1"], line["y1"], line["x2"], line["y2"])
         elif "rho" in line:
-            # Formato HoughLines standard - convertir de polar a puntos
             rho = line["rho"]
             theta = line["theta"]
             h, w = img_shape[:2]
@@ -122,7 +139,6 @@ class ClassifyLinesByAngle(BaseFilter):
             x0 = a * rho
             y0 = b * rho
             
-            # Extender la línea
             length = max(h, w) * 2
             x1 = int(x0 + length * (-b))
             y1 = int(y0 + length * (a))
@@ -131,12 +147,13 @@ class ClassifyLinesByAngle(BaseFilter):
             
             return (x1, y1, x2, y2)
         else:
-            # Formato desconocido
             return None
     
     def process(self, inputs: Dict[str, Any], original_image: np.ndarray) -> Dict[str, Any]:
         lines_data = inputs.get("lines_data", [])
-        base_img = inputs.get("base_image", original_image)  # <-- MODIFICADO: fallback con advertencia
+        base_img = inputs.get("base_image", original_image)
+        
+        h, w = base_img.shape[:2]
         
         tolerance = self.params["angle_tolerance"]
         thickness = self.params["line_thickness"]
@@ -156,14 +173,13 @@ class ClassifyLinesByAngle(BaseFilter):
         vertical_lines = []
         other_lines = []
         
-        # Crear imagen para visualización usando base_img
         if len(base_img.shape) == 2:
             vis_img = cv2.cvtColor(base_img, cv2.COLOR_GRAY2BGR)
         else:
             vis_img = base_img.copy()
         
         for line in lines_data:
-            points = self._convert_to_points_format(line, base_img.shape)  # <-- Usar base_img.shape
+            points = self._convert_to_points_format(line, base_img.shape)
             if points is None:
                 continue
             
@@ -184,17 +200,27 @@ class ClassifyLinesByAngle(BaseFilter):
                 cv2.line(vis_img, (x1, y1), (x2, y2), v_color, thickness)
             else:
                 other_lines.append(line_record)
-                # Otras líneas en gris tenue
                 cv2.line(vis_img, (x1, y1), (x2, y2), (128, 128, 128), 1)
         
-        # Agregar texto informativo
         cv2.putText(vis_img, f"H:{len(horizontal_lines)} V:{len(vertical_lines)} Other:{len(other_lines)}",
                     (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
+        
+        # ✅ NUEVO: Metadata con dimensiones de imagen
+        metadata = {
+            "image_width": int(w),
+            "image_height": int(h),
+            "horizontal_count": len(horizontal_lines),
+            "vertical_count": len(vertical_lines),
+            "other_count": len(other_lines),
+            "total_lines": len(lines_data),
+            "angle_tolerance": tolerance
+        }
         
         return {
             "horizontal_lines": horizontal_lines,
             "vertical_lines": vertical_lines,
             "other_lines": other_lines,
+            "lines_metadata": metadata,  # ✅ NUEVO OUTPUT
             "classified_image": vis_img,
             "sample_image": vis_img
         }

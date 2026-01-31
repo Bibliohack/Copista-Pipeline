@@ -35,7 +35,7 @@ Imagen Original
 
 ## Estructura de un Filtro
 
-### Plantilla básica
+### Plantilla básica (filtro de imagen)
 
 ```python
 class MiFiltro(BaseFilter):
@@ -47,22 +47,15 @@ class MiFiltro(BaseFilter):
     DESCRIPTION = "Descripción detallada de lo que hace el filtro"
     
     INPUTS = {
-        # Entradas que este filtro necesita de filtros anteriores
-        # Formato: "nombre_input": "tipo_dato"
         "input_image": "image"
     }
     
     OUTPUTS = {
-        # Salidas que este filtro produce
-        # Formato: "nombre_output": "tipo_dato"
-        # OBLIGATORIO: siempre debe incluir "sample_image": "image"
         "mi_resultado": "image",
         "sample_image": "image"  # OBLIGATORIO para visualización
     }
     
     PARAMS = {
-        # Parámetros ajustables por el usuario
-        # Cada parámetro es un dict con: default, min, max, step, description
         "mi_parametro": {
             "default": 50,
             "min": 0,
@@ -75,35 +68,111 @@ class MiFiltro(BaseFilter):
     # === MÉTODO OBLIGATORIO ===
     
     def process(self, inputs: Dict[str, Any], original_image: np.ndarray) -> Dict[str, Any]:
-        """
-        Procesa el filtro.
-        
-        Args:
-            inputs: Dict con datos de filtros anteriores (según INPUTS definidos)
-            original_image: Imagen original sin procesar (siempre disponible)
-        
-        Returns:
-            Dict con todos los outputs definidos en OUTPUTS
-        """
-        # Obtener imagen de entrada
         img = inputs.get("input_image", original_image)
-        
-        # Obtener parámetros
         param_valor = self.params["mi_parametro"]
         
         # Procesar...
         resultado = self._hacer_algo(img, param_valor)
         
-        # Retornar TODOS los outputs declarados en OUTPUTS
         return {
             "mi_resultado": resultado,
-            "sample_image": resultado  # Para visualización
+            "sample_image": resultado
         }
 ```
 
----
+### Plantilla para filtros que producen datos con coordenadas
 
-[... resto del contenido del FILTER_DEVELOPMENT_GUIDE original, pero con estos cambios ...]
+**IMPORTANTE:** Si tu filtro produce datos con coordenadas absolutas (líneas, contornos, puntos), 
+**DEBE** incluir un output de metadata con las dimensiones de la imagen de referencia.
+
+```python
+class DetectarLineas(BaseFilter):
+    """Detecta líneas en la imagen"""
+    
+    FILTER_NAME = "DetectarLineas"
+    DESCRIPTION = "Detecta líneas rectas en la imagen"
+    
+    INPUTS = {
+        "input_image": "image"
+    }
+    
+    OUTPUTS = {
+        "lines_data": "lines",          # Datos con coordenadas
+        "lines_metadata": "metadata",   # ✅ OBLIGATORIO: metadata con dimensiones
+        "sample_image": "image"         # Visualización
+    }
+    
+    PARAMS = {...}
+    
+    def process(self, inputs: Dict[str, Any], original_image: np.ndarray) -> Dict[str, Any]:
+        img = inputs.get("input_image", original_image)
+        h, w = img.shape[:2]  # ✅ Obtener dimensiones
+        
+        # Detectar líneas...
+        lines_data = [
+            {"x1": 10, "y1": 20, "x2": 100, "y2": 200},
+            {"x1": 15, "y1": 25, "x2": 105, "y2": 205},
+            # ...
+        ]
+        
+        # ✅ IMPORTANTE: Crear metadata con dimensiones
+        # Mínimo requerido: image_width, image_height
+        metadata = {
+            "image_width": int(w),
+            "image_height": int(h),
+            # Opcional: otros datos relevantes
+            "total_lines": len(lines_data),
+            "detection_threshold": self.params.get("threshold", 0)
+        }
+        
+        # Crear visualización...
+        vis = self._draw_lines(img, lines_data)
+        
+        return {
+            "lines_data": lines_data,
+            "lines_metadata": metadata,  # ✅ Retornar metadata
+            "sample_image": vis
+        }
+```
+
+### ¿Por qué metadata es obligatoria para datos con coordenadas?
+
+**Problema sin metadata:**
+```python
+# Usuario detecta líneas en imagen pequeña (640x480)
+lines = detectar_lineas(imagen_pequeña)  # [{"x1": 100, "y1": 50, ...}]
+
+# Usuario quiere aplicarlas a imagen grande (1920x1080)
+# ❌ NO SABE qué resolución tenían las coordenadas originales
+# ❌ NO PUEDE escalar correctamente
+```
+
+**Solución con metadata:**
+```python
+# Filtro retorna datos + metadata
+lines_data = [{"x1": 100, "y1": 50, ...}]
+metadata = {"image_width": 640, "image_height": 480}
+
+# Usuario puede escalar correctamente
+scale_x = 1920 / metadata["image_width"]   # 3.0
+scale_y = 1080 / metadata["image_height"]  # 2.25
+scaled_x = 100 * scale_x  # 300
+```
+
+### Convenciones de nombres para metadata
+
+| Tipo de Datos | Nombre del Output | Claves Mínimas |
+|---------------|-------------------|----------------|
+| Líneas | `lines_metadata` | `image_width`, `image_height` |
+| Contornos | `contours_metadata` | `image_width`, `image_height`, `image_area` |
+| Puntos/Esquinas | `corners_metadata` o `points_metadata` | `image_width`, `image_height` |
+
+**Reglas:**
+- Nombres en snake_case
+- Sin prefijo `_`: usar `"image_width"` NO `"_image_width"`
+- Siempre incluir al menos `image_width` e `image_height`
+
+---
 
 ## Uso en pipeline.json
 
@@ -169,11 +238,13 @@ El filtro `denoise` se ejecutará entre `grayscale` y `blur` automáticamente.
 - [ ] `DESCRIPTION` describe claramente la función
 - [ ] `INPUTS` lista todas las entradas necesarias
 - [ ] `OUTPUTS` incluye `"sample_image": "image"`
+- [ ] **Si produce datos con coordenadas, incluye output `*_metadata` con `image_width` e `image_height`**
 - [ ] `PARAMS` tiene `default`, `min`, `max`, `step`, `description` para cada parámetro
 - [ ] `process()` retorna **todos** los outputs definidos
 - [ ] `process()` maneja el caso donde `inputs` puede estar vacío
 - [ ] Si produce solo imágenes, es compatible con checkpoint
 - [ ] Los valores de parámetros se validan/corrigen si es necesario (ej: kernel impar)
+- [ ] **Las claves de metadata usan snake_case sin prefijo `_`**
 
 ---
 

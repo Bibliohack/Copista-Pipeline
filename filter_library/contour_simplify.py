@@ -1,5 +1,5 @@
 """
-Filtro: ContourSimplify
+Filtro: ContourSimplify - MEJORADO
 """
 
 import cv2
@@ -12,7 +12,7 @@ class ContourSimplify(BaseFilter):
     """Detecta y simplifica contornos usando approxPolyDP"""
     
     FILTER_NAME = "ContourSimplify"
-    DESCRIPTION = "Detecta contornos, los simplifica con approxPolyDP y genera visualización con vértices. Útil para detección de formas geométricas."
+    DESCRIPTION = "Detecta contornos, los simplifica con approxPolyDP y genera visualización con vértices. Incluye metadata con dimensiones de imagen."
     
     INPUTS = {
         "input_image": "image"
@@ -20,6 +20,7 @@ class ContourSimplify(BaseFilter):
     
     OUTPUTS = {
         "contours_data": "contours",
+        "contours_metadata": "metadata",  # ✅ NUEVO
         "contour_image": "image",
         "sample_image": "image"
     }
@@ -121,13 +122,14 @@ class ContourSimplify(BaseFilter):
     def process(self, inputs: Dict[str, Any], original_image: np.ndarray) -> Dict[str, Any]:
         input_img = inputs.get("input_image", original_image)
         
+        h, w = input_img.shape[:2]  # ✅ Obtener dimensiones
+        
         # Convertir a grayscale y binarizar si es necesario
         if len(input_img.shape) == 3:
             gray = cv2.cvtColor(input_img, cv2.COLOR_BGR2GRAY)
         else:
             gray = input_img
         
-        # Si no es binaria, aplicar umbral
         if gray.max() > 1:
             _, binary = cv2.threshold(gray, 127, 255, cv2.THRESH_BINARY)
         else:
@@ -154,7 +156,7 @@ class ContourSimplify(BaseFilter):
         # Encontrar contornos
         contours, hierarchy = cv2.findContours(binary, mode, cv2.CHAIN_APPROX_SIMPLE)
         
-        # Crear imagen para dibujar usando input_img (no original_image)
+        # Crear imagen para dibujar
         if len(input_img.shape) == 3:
             contour_img = input_img.copy()
         else:
@@ -162,6 +164,9 @@ class ContourSimplify(BaseFilter):
         
         # Preparar datos de contornos
         contours_data = []
+        total_area = 0
+        total_perimeter = 0
+        total_vertices = 0
         
         for contour in contours:
             area = cv2.contourArea(contour)
@@ -180,18 +185,42 @@ class ContourSimplify(BaseFilter):
                         cv2.circle(contour_img, tuple(point[0]), vertex_radius, vertex_color, -1)
                 
                 # Guardar datos
-                x, y, w, h = cv2.boundingRect(approx)
+                x, y, w_box, h_box = cv2.boundingRect(approx)
+                
+                total_area += area
+                total_perimeter += perimeter
+                total_vertices += len(approx)
+                
                 contours_data.append({
                     "area": area,
                     "perimeter": perimeter,
                     "num_vertices": len(approx),
-                    "bounding_box": (x, y, w, h),
+                    "bounding_box": (x, y, w_box, h_box),
                     "simplified_points": approx.tolist(),
                     "original_points": contour.tolist()
                 })
         
+        # ✅ NUEVO: Metadata con dimensiones e información de simplificación
+        image_area = w * h
+        metadata = {
+            "image_width": int(w),
+            "image_height": int(h),
+            "image_area": int(image_area),
+            "total_contours": len(contours),
+            "filtered_contours": len(contours_data),
+            "rejected_contours": len(contours) - len(contours_data),
+            "min_area_threshold": min_area,
+            "epsilon_factor": epsilon_factor,
+            "total_contour_area": float(total_area),
+            "total_contour_perimeter": float(total_perimeter),
+            "total_vertices": int(total_vertices),
+            "avg_vertices_per_contour": round(total_vertices / len(contours_data), 1) if contours_data else 0,
+            "coverage_percent": round((total_area / image_area) * 100, 2) if image_area > 0 else 0
+        }
+        
         return {
             "contours_data": contours_data,
+            "contours_metadata": metadata,  # ✅ NUEVO OUTPUT
             "contour_image": contour_img,
             "sample_image": contour_img
         }

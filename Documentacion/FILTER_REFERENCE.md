@@ -2,18 +2,20 @@
 
 ## Plantilla
 
+### Filtro que produce solo imágenes
+
 ```python
 class MiFiltro(BaseFilter):
-    FILTER_NAME = "MiFiltro"                    # Identificador único (PascalCase)
+    FILTER_NAME = "MiFiltro"
     DESCRIPTION = "Qué hace el filtro"
     
     INPUTS = {
-        "input_image": "image"                  # Entradas de otros filtros. {} si usa imagen original
+        "input_image": "image"
     }
     
     OUTPUTS = {
         "resultado": "image",
-        "sample_image": "image"                 # OBLIGATORIO: imagen para visualización
+        "sample_image": "image"  # OBLIGATORIO
     }
     
     PARAMS = {
@@ -34,7 +36,47 @@ class MiFiltro(BaseFilter):
         
         return {
             "resultado": imagen_procesada,
-            "sample_image": imagen_procesada    # Lo que se muestra en el visualizador
+            "sample_image": imagen_procesada
+        }
+```
+
+### Filtro que produce datos con coordenadas
+
+```python
+class DetectLines(BaseFilter):
+    FILTER_NAME = "DetectLines"
+    DESCRIPTION = "Detecta líneas en la imagen"
+    
+    INPUTS = {
+        "input_image": "image"
+    }
+    
+    OUTPUTS = {
+        "lines_data": "lines",
+        "lines_metadata": "metadata",  # ✅ OBLIGATORIO para datos con coordenadas
+        "sample_image": "image"
+    }
+    
+    PARAMS = {...}
+    
+    def process(self, inputs: Dict[str, Any], original_image: np.ndarray) -> Dict[str, Any]:
+        img = inputs.get("input_image", original_image)
+        h, w = img.shape[:2]
+        
+        # ... detectar líneas ...
+        lines_data = [{"x1": 10, "y1": 20, "x2": 100, "y2": 200}, ...]
+        
+        # ✅ IMPORTANTE: Crear metadata con dimensiones
+        metadata = {
+            "image_width": int(w),
+            "image_height": int(h),
+            "total_lines": len(lines_data)
+        }
+        
+        return {
+            "lines_data": lines_data,
+            "lines_metadata": metadata,  # ✅ Incluir metadata
+            "sample_image": visualizacion
         }
 ```
 
@@ -45,18 +87,35 @@ class MiFiltro(BaseFilter):
 2. **Tipos de datos para INPUTS/OUTPUTS:**
    - `"image"` → numpy.ndarray (BGR o grayscale)
    - `"lines"`, `"contours"`, `"histogram"`, etc. → datos estructurados
+   - `"metadata"` → diccionario con información contextual
 
-3. **Si el filtro produce datos (no imagen)**, sample_image debe ser una representación visual:
+3. **Si el filtro produce datos con coordenadas o métricas**, debe incluir un output de metadata:
    ```python
    OUTPUTS = {
-       "lines_data": "lines",      # Datos
-       "sample_image": "image"     # Visualización de los datos
+       "lines_data": "lines",         # Datos con coordenadas
+       "lines_metadata": "metadata",  # ✅ OBLIGATORIO: dimensiones de imagen
+       "sample_image": "image"        # Visualización
+   }
+   
+   # El metadata debe contener AL MENOS:
+   metadata = {
+       "image_width": int(w),
+       "image_height": int(h),
+       # ... otros datos específicos del filtro
    }
    ```
+   
+   **¿Por qué?** Permite escalar coordenadas entre resoluciones, validar límites y contextualizar métricas.
 
-4. **Restricción de cache:** Solo filtros con todos los outputs tipo `"image"` pueden estar antes de un checkpoint
+4. **Convención de nombres para metadata:**
+   - Líneas: `"lines_metadata"`
+   - Contornos: `"contours_metadata"`
+   - Esquinas/Puntos: `"corners_metadata"` o `"points_metadata"`
+   - Claves sin prefijo `_`: `"image_width"` (no `"_image_width"`)
 
-5. **El filtro se registra automáticamente** al definir la clase
+5. **Restricción de cache:** Solo filtros con todos los outputs tipo `"image"` pueden estar antes de un checkpoint
+
+6. **El filtro se registra automáticamente** al definir la clase
 
 ## Uso en pipeline.json
 
@@ -73,7 +132,7 @@ class MiFiltro(BaseFilter):
 
 **Formato de referencia:** `"filter_id.nombre_output"`
 
-Ejemplo completo:
+Ejemplo completo con metadata:
 
 ```json
 {
@@ -82,16 +141,26 @@ Ejemplo completo:
             "filter_name": "Resize",
             "inputs": {}
         },
-        "grayscale": {
-            "filter_name": "Grayscale",
+        "canny": {
+            "filter_name": "CannyEdge",
             "inputs": {
                 "input_image": "resize.resized_image"
             }
         },
-        "mi_filtro": {
-            "filter_name": "MiFiltro",
+        "hough": {
+            "filter_name": "HoughLines",
+            "description": "Detecta líneas - produce lines_data y lines_metadata",
             "inputs": {
-                "input_image": "grayscale.grayscale_image"
+                "edge_image": "canny.edge_image",
+                "base_image": "resize.resized_image"
+            }
+        },
+        "scale_lines": {
+            "filter_name": "ScaleCoordinates",
+            "description": "Escala líneas a resolución original usando metadata",
+            "inputs": {
+                "lines_data": "hough.lines_data",
+                "lines_metadata": "hough.lines_metadata"
             }
         }
     }

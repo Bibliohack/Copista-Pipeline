@@ -1,5 +1,5 @@
 """
-Filtro: HoughLinesFilter
+Filtro: HoughLinesFilter - MEJORADO
 """
 
 import cv2
@@ -12,15 +12,19 @@ class HoughLinesFilter(BaseFilter):
     """Detecta líneas usando la transformada de Hough"""
     
     FILTER_NAME = "HoughLines"
-    DESCRIPTION = "Detecta líneas rectas usando la transformada de Hough"
+    DESCRIPTION = "Detecta líneas rectas usando la transformada de Hough. Incluye metadata con dimensiones de imagen."
+    
     INPUTS = {
         "edge_image": "image",
-        "base_image": "image"  # <-- AÑADIDO: para visualización
+        "base_image": "image"
     }
+    
     OUTPUTS = {
         "lines_data": "lines",
+        "lines_metadata": "metadata",  # ✅ NUEVO
         "sample_image": "image"
     }
+    
     PARAMS = {
         "method": {
             "default": 1,
@@ -68,27 +72,28 @@ class HoughLinesFilter(BaseFilter):
     
     def process(self, inputs: Dict[str, Any], original_image: np.ndarray) -> Dict[str, Any]:
         edge_img = inputs.get("edge_image")
-        base_img = inputs.get("base_image", original_image)  # <-- MODIFICADO: fallback con advertencia
+        base_img = inputs.get("base_image", original_image)
         
         if edge_img is None:
             warnings.warn(f"[HoughLines] No se proporcionó 'edge_image', aplicando Canny a la imagen base.", stacklevel=2)
-            # Si no hay edge_image, usar la imagen base
             if len(base_img.shape) == 3:
                 edge_img = cv2.Canny(cv2.cvtColor(base_img, cv2.COLOR_BGR2GRAY), 50, 150)
             else:
                 edge_img = cv2.Canny(base_img, 50, 150)
         
+        h, w = base_img.shape[:2]  # ✅ Obtener dimensiones
+        
         rho = self.params["rho"]
         theta = np.pi / self.params["theta_divisor"]
         threshold = self.params["threshold"]
         
-        # Crear imagen para visualización usando base_img
         if len(base_img.shape) == 3:
             sample = base_img.copy()
         else:
             sample = cv2.cvtColor(base_img, cv2.COLOR_GRAY2BGR)
         
         lines_data = []
+        method_used = "standard" if self.params["method"] == 0 else "probabilistic"
         
         if self.params["method"] == 0:
             # Hough Standard
@@ -119,7 +124,23 @@ class HoughLinesFilter(BaseFilter):
                     cv2.line(sample, (x1, y1), (x2, y2), (0, 255, 0), 2)
                     lines_data.append({"x1": x1, "y1": y1, "x2": x2, "y2": y2})
         
+        # ✅ NUEVO: Metadata con dimensiones e información del método
+        metadata = {
+            "image_width": int(w),
+            "image_height": int(h),
+            "total_lines": len(lines_data),
+            "method": method_used,
+            "rho": rho,
+            "theta_degrees": float(np.degrees(theta)),
+            "threshold": threshold
+        }
+        
+        if self.params["method"] == 1:
+            metadata["min_line_length"] = self.params["min_line_length"]
+            metadata["max_line_gap"] = self.params["max_line_gap"]
+        
         return {
             "lines_data": lines_data,
+            "lines_metadata": metadata,  # ✅ NUEVO OUTPUT
             "sample_image": sample
         }

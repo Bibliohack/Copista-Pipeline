@@ -1,5 +1,5 @@
 """
-Filtro: CalculateQuadCorners
+Filtro: CalculateQuadCorners - MEJORADO
 """
 
 import cv2
@@ -12,16 +12,17 @@ class CalculateQuadCorners(BaseFilter):
     """Calcula las 4 esquinas de un cuadrilátero a partir de líneas de borde"""
     
     FILTER_NAME = "CalculateQuadCorners"
-    DESCRIPTION = "Calcula las 4 esquinas (top_left, top_right, bottom_left, bottom_right) intersectando las líneas de borde seleccionadas. Genera polígono de recorte."
+    DESCRIPTION = "Calcula las 4 esquinas (top_left, top_right, bottom_left, bottom_right) intersectando las líneas de borde seleccionadas. Incluye metadata con dimensiones de imagen."
     
     INPUTS = {
-        "base_image": "image",  # <-- AÑADIDO: para visualización
+        "base_image": "image",
         "selected_lines": "border_lines",
         "selection_metadata": "metadata"
     }
     
     OUTPUTS = {
         "corners": "quad_points",
+        "corners_metadata": "metadata",  # ✅ NUEVO
         "corners_image": "image",
         "sample_image": "image"
     }
@@ -133,9 +134,9 @@ class CalculateQuadCorners(BaseFilter):
     def process(self, inputs: Dict[str, Any], original_image: np.ndarray) -> Dict[str, Any]:
         selected_lines = inputs.get("selected_lines", {})
         metadata = inputs.get("selection_metadata", {})
-        base_img = inputs.get("base_image", original_image)  # <-- MODIFICADO: fallback con advertencia
+        base_img = inputs.get("base_image", original_image)
         
-        h, w = base_img.shape[:2]  # <-- Usar base_img, no original_image
+        h, w = base_img.shape[:2]
         
         radius = self.params["corner_radius"]
         thickness = self.params["polygon_thickness"]
@@ -212,6 +213,15 @@ class CalculateQuadCorners(BaseFilter):
             if corners.get(name) is not None:
                 valid_corners.append((corners[name]["x"], corners[name]["y"]))
         
+        # ✅ NUEVO: Crear metadata separado
+        corners_metadata = {
+            "image_width": int(w),
+            "image_height": int(h),
+            "image_area": int(w * h),
+            "corners_found": len(valid_corners),
+            "valid": False
+        }
+        
         # Dibujar polígono si tenemos las 4 esquinas
         if len(valid_corners) == 4:
             polygon = np.array(valid_corners, dtype=np.int32)
@@ -221,13 +231,10 @@ class CalculateQuadCorners(BaseFilter):
             area = cv2.contourArea(polygon)
             area_percentage = (area / (w * h)) * 100
             
-            # Agregar info al metadata
-            corners["_polygon_area"] = float(area)
-            corners["_polygon_area_percent"] = round(area_percentage, 2)
-            corners["_valid"] = True
-        else:
-            corners["_valid"] = False
-            corners["_corners_found"] = len(valid_corners)
+            # ✅ MODIFICADO: Agregar a metadata separado (sin prefijo _)
+            corners_metadata["valid"] = True
+            corners_metadata["polygon_area"] = float(area)
+            corners_metadata["polygon_area_percent"] = round(area_percentage, 2)
         
         # Dibujar esquinas
         for name in corner_order:
@@ -253,15 +260,7 @@ class CalculateQuadCorners(BaseFilter):
         
         return {
             "corners": corners,
+            "corners_metadata": corners_metadata,  # ✅ NUEVO OUTPUT SEPARADO
             "corners_image": vis_img,
             "sample_image": vis_img
         }
-
-
-# =============================================================================
-# FIN de Filtros basados en detectar_bordes_hough_probabilistico.py
-# =============================================================================
-
-# =============================================================================
-# FUNCIONES AUXILIARES
-# =============================================================================

@@ -1,5 +1,5 @@
 """
-Filtro: ContourFilter
+Filtro: ContourFilter - MEJORADO
 """
 
 import cv2
@@ -12,15 +12,19 @@ class ContourFilter(BaseFilter):
     """Detecta y dibuja contornos"""
     
     FILTER_NAME = "Contours"
-    DESCRIPTION = "Detecta contornos y genera datos de contornos"
+    DESCRIPTION = "Detecta contornos y genera datos de contornos. Incluye metadata con dimensiones de imagen."
+    
     INPUTS = {
         "input_image": "image"
     }
+    
     OUTPUTS = {
         "contours_data": "contours",
+        "contours_metadata": "metadata",  # ✅ NUEVO
         "contour_image": "image",
         "sample_image": "image"
     }
+    
     PARAMS = {
         "mode": {
             "default": 1,
@@ -90,6 +94,8 @@ class ContourFilter(BaseFilter):
     def process(self, inputs: Dict[str, Any], original_image: np.ndarray) -> Dict[str, Any]:
         input_img = inputs.get("input_image", original_image)
         
+        h, w = input_img.shape[:2]  # ✅ Obtener dimensiones
+        
         # Convertir a grayscale y binarizar si es necesario
         if len(input_img.shape) == 3:
             gray = cv2.cvtColor(input_img, cv2.COLOR_BGR2GRAY)
@@ -112,7 +118,7 @@ class ContourFilter(BaseFilter):
         min_area = self.params["min_area"]
         filtered_contours = [c for c in contours if cv2.contourArea(c) >= min_area]
         
-        # Crear imagen de contornos usando input_img (no original_image)
+        # Crear imagen de contornos
         if len(input_img.shape) == 3:
             contour_img = input_img.copy()
         else:
@@ -123,19 +129,42 @@ class ContourFilter(BaseFilter):
         
         # Preparar datos de contornos
         contours_data = []
+        total_area = 0
+        total_perimeter = 0
+        
         for c in filtered_contours:
             area = cv2.contourArea(c)
             perimeter = cv2.arcLength(c, True)
-            x, y, w, h = cv2.boundingRect(c)
+            x, y, w_box, h_box = cv2.boundingRect(c)
+            
+            total_area += area
+            total_perimeter += perimeter
+            
             contours_data.append({
                 "area": area,
                 "perimeter": perimeter,
-                "bounding_box": (x, y, w, h),
+                "bounding_box": (x, y, w_box, h_box),
                 "points": c.tolist()
             })
         
+        # ✅ NUEVO: Metadata con dimensiones e información de contornos
+        image_area = w * h
+        metadata = {
+            "image_width": int(w),
+            "image_height": int(h),
+            "image_area": int(image_area),
+            "total_contours": len(contours),
+            "filtered_contours": len(filtered_contours),
+            "rejected_contours": len(contours) - len(filtered_contours),
+            "min_area_threshold": min_area,
+            "total_contour_area": float(total_area),
+            "total_contour_perimeter": float(total_perimeter),
+            "coverage_percent": round((total_area / image_area) * 100, 2) if image_area > 0 else 0
+        }
+        
         return {
             "contours_data": contours_data,
+            "contours_metadata": metadata,  # ✅ NUEVO OUTPUT
             "contour_image": contour_img,
             "sample_image": contour_img
         }
