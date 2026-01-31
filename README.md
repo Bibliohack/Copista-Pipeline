@@ -2,8 +2,6 @@
 
 Sistema en Python para aplicar una sucesión configurable de filtros sobre imágenes.
 
-https://github.com/user-attachments/assets/e84fdcec-30dc-49f0-81f8-e44c3913897a
-
 ## Uso Rápido
 
 ```bash
@@ -28,157 +26,22 @@ python param_configurator.py --clear-cache
 ## Estructura de Archivos
 
 ```
-proyecto/
-├── pipeline.json           # (A) Define qué filtros aplicar y sus conexiones
-├── params.json             # (B) Parámetros guardados de los filtros
+image_filter_system/
+├── pipeline.json           # Define qué filtros aplicar y sus conexiones
+├── params.json             # Parámetros guardados de los filtros
 ├── checkpoint.json         # Configuración del checkpoint de cache
-├── filter_library/         # (C) Biblioteca de filtros (módulo)
-│   ├── __init__.py         #     Exporta todos los filtros
-│   ├── base_filter.py      #     Clase base y FILTER_REGISTRY
-│   ├── resize_filter.py    #     Un filtro por archivo
-│   ├── grayscale_filter.py
-│   ├── ...
-│   └── [mi_filtro.py]      #     Nuevos filtros van aquí
-├── param_configurator.py   # (D) GUI para configurar parámetros
-├── sync_pipeline_params.py # (E) Sincronizador pipeline ↔ params
+├── filter_library/         # Biblioteca de filtros disponibles
+│   ├── __init__.py
+│   ├── base_filter.py
+│   ├── resize_filter.py
+│   └── ...
+├── param_configurator.py   # GUI para configurar parámetros
+├── sync_pipeline_params.py # Sincronizador pipeline ↔ params
 └── carpeta_imagenes/
     └── .cache/             # Cache de filtros (generado automáticamente)
-        └── {filtro}/
+        └── {filtro_id}/
             └── {imagen}.png
 ```
-
-## ⭐ Sistema de Sincronización Pipeline ↔ Parámetros
-
-### ¿Qué problema resuelve?
-
-Cuando modificas `pipeline.json` (agregas, eliminas o reordenas filtros), los parámetros en `params.json` pueden quedar desalineados porque se guardan por índice numérico.
-
-**El sincronizador detecta y corrige automáticamente estos problemas.**
-
-### Validación Automática
-
-`param_configurator.py` ahora valida automáticamente la sincronización al iniciar:
-
-```bash
-$ python param_configurator.py
-
-🔍 Validando sincronización pipeline ↔ params...
-
-# CASO 1: Solo filtros nuevos (continúa normalmente)
-⚠️  AVISOS DETECTADOS (no bloqueantes)
-2 filtro(s) nuevo(s) detectado(s):
-  • Índice 3: CannyEdge (usará defaults)
-  • Índice 4: Morphology (usará defaults)
-✅ Puedes continuar. param_configurator.py funcionará normalmente.
-
-# CASO 2: Errores críticos (bloquea ejecución)
-❌ VALIDACIÓN FALLIDA - ERRORES CRÍTICOS
-Se encontraron 1 errores bloqueantes:
-  • Índice 2: Cambio de filtro
-    Era: GaussianBlur
-    Ahora: CannyEdge
-
-⚠️  Debes ejecutar: python sync_pipeline_params.py
-```
-
-### Uso del Sincronizador
-
-```bash
-# Modo interactivo: te pregunta qué hacer con cada problema
-python sync_pipeline_params.py
-
-# Modo automático: limpia huérfanos automáticamente
-python sync_pipeline_params.py --auto-clean
-
-# Solo validar sin hacer cambios
-python sync_pipeline_params.py --validate-only
-```
-
-### Tipos de Problemas Detectados
-
-| Tipo | Criticidad | Descripción |
-|------|------------|-------------|
-| **MISMATCH** | ❌ Bloqueante | Mismo índice, diferente filtro (ej: índice 2 era Blur, ahora es Canny) |
-| **ORPHAN** | ⚠️ Advertencia | Parámetros sin filtro correspondiente (pueden limpiarse) |
-| **MOVED** | ⚠️ Advertencia | Filtro movido de posición (puede corregirse) |
-| **NEW** | ℹ️ Info (OK) | Filtros nuevos sin parámetros (usarán defaults) |
-
-**Solo MISMATCH bloquea param_configurator.py**
-
-### Flujo de Trabajo Recomendado
-
-#### Agregar filtros nuevos (simple)
-```bash
-# Edita pipeline.json, agrega filtros al final
-python param_configurator.py
-# ✅ Detecta filtros nuevos, avisa, y continúa normalmente
-```
-
-#### Modificar pipeline existente (requiere sincronización)
-```bash
-# 1. Edita pipeline.json (elimina, mueve, cambia filtros)
-# 2. Sincroniza
-python sync_pipeline_params.py
-# 3. Continúa normalmente
-python param_configurator.py
-```
-
-### Ejemplo de Sesión Interactiva
-
-```bash
-$ python sync_pipeline_params.py
-
-============================================================
-❌ ERRORES BLOQUEANTES: 1
-⚠️  ADVERTENCIAS: 1
-ℹ️  INFORMACIÓN: 1
-============================================================
-
-❌ CAMBIOS DE FILTRO - BLOQUEANTE (1):
-  Índice 2:
-    Pipeline: CannyEdge
-    Params:   GaussianBlur
-
-⚠️  PARÁMETROS HUÉRFANOS - ADVERTENCIA (1):
-  Índice 5: Threshold
-    (este filtro ya no está en pipeline.json)
-
-ℹ️  FILTROS NUEVOS - OK (1):
-  Índice 3: Morphology
-
-¿Deseas corregir estos problemas? (s/n): s
-
-[1/3] CAMBIO DE FILTRO en índice 2
-  Pipeline: CannyEdge
-  Params:   GaussianBlur
-
-Opciones:
-  1) Usar parámetros guardados para el NUEVO filtro (si son compatibles)
-  2) Descartar parámetros antiguos (usar defaults del nuevo filtro)
-  3) Cancelar (mantener como está)
-
-Elige opción (1/2/3): 2
-  ✓ Parámetros antiguos descartados
-
-[2/3] PARÁMETROS HUÉRFANOS en índice 5
-  Filtro: Threshold
-  (ya no existe en pipeline.json)
-
-Opciones:
-  1) Eliminar estos parámetros
-  2) Mantener (por si lo vuelves a usar)
-
-Elige opción (1/2): 1
-  ✓ Parámetros eliminados
-
-[3/3] FILTRO NUEVO en índice 3
-  Filtro: Morphology
-  ✅ Esto está OK. Usará valores por defecto.
-
-✅ Cambios guardados en params.json
-```
-
-Para más detalles, consulta la [Documentación Completa de Sincronización](docs/SINCRONIZACION.md)
 
 ## Controles del Configurador GUI
 
@@ -187,9 +50,10 @@ Para más detalles, consulta la [Documentación Completa de Sincronización](doc
 | `a` / `d` | Imagen anterior / siguiente |
 | `ESPACIO` | Avanzar al siguiente filtro (visualización) |
 | `BACKSPACE` | Retroceder al filtro anterior (visualización) |
+| `PgDown` | Avanzar al siguiente filtro (edición) |
+| `PgUp` | Retroceder al filtro anterior (edición) |
 | `↑` / `↓` | Navegar entre parámetros |
 | `←` / `→` | Decrementar / incrementar valor del parámetro |
-| `PgUp` / `PgDown` | Cambiar filtro a editar (sin cambiar vista) |
 | `c` | Marcar/desmarcar filtro actual como checkpoint |
 | `s` | Guardar parámetros en params.json |
 | `r` | Recargar parámetros desde params.json |
@@ -202,9 +66,9 @@ El sistema permite marcar un filtro como "checkpoint" para acelerar el procesami
 
 ### Funcionamiento
 
-1. **Marcar checkpoint**: Presiona `c` en el filtro deseado (ej: filtro 2)
-2. **Generación de cache**: Al navegar imágenes, se guarda automáticamente el resultado del checkpoint en `.cache/{filtro}/{imagen}.png`
-3. **Uso del cache**: Si estás visualizando un filtro posterior al checkpoint (ej: filtro 5), los filtros 0, 1, 2 no se ejecutan - se carga directamente desde cache
+1. **Marcar checkpoint**: Presiona `c` en el filtro deseado (ej: filtro `blur`)
+2. **Generación de cache**: Al navegar imágenes, se guarda automáticamente el resultado del checkpoint en `.cache/{filtro_id}/{imagen}.png`
+3. **Uso del cache**: Si estás visualizando un filtro posterior al checkpoint (ej: filtro `canny`), los filtros anteriores no se ejecutan - se carga directamente desde cache
 
 ### Solo un checkpoint activo
 
@@ -220,18 +84,18 @@ Si modificas parámetros de un filtro anterior o igual al checkpoint:
 ### Ejemplo de uso
 
 ```
-Pipeline: [0:Resize] → [1:Grayscale] → [2:Blur] → [3:Canny] → [4:Hough] → [5:Overlay]
-                                         ↑
-                                    CHECKPOINT
+Pipeline: [resize] → [grayscale] → [blur] → [canny] → [hough] → [overlay]
+                                      ↑
+                                 CHECKPOINT
 
-- Visualizando filtro 5, navegando imágenes con 'a'/'d':
-  → Filtros 0,1,2 NO se ejecutan (se usa cache del filtro 2)
-  → Solo se ejecutan filtros 3,4,5
+- Visualizando filtro 'overlay', navegando imágenes con 'a'/'d':
+  → Filtros resize, grayscale, blur NO se ejecutan (se usa cache de blur)
+  → Solo se ejecutan filtros canny, hough, overlay
 
-- Retrocediendo a filtro 1 con BACKSPACE:
-  → Se ejecutan filtros 0,1 (el cache no aplica)
+- Retrocediendo a filtro 'grayscale' con BACKSPACE:
+  → Se ejecutan filtros resize, grayscale (el cache no aplica)
 
-- Modificando parámetros del filtro 1:
+- Modificando parámetros del filtro 'grayscale':
   → ignore_cache = True
   → Se ejecuta todo el pipeline
   → Al guardar con 's': advertencia + borrado de cache
@@ -239,82 +103,127 @@ Pipeline: [0:Resize] → [1:Grayscale] → [2:Blur] → [3:Canny] → [4:Hough] 
 
 ## Archivos de Configuración
 
-### (A) pipeline.json - Configuración del Pipeline
+### pipeline.json - Configuración del Pipeline
 
 Define la cadena de filtros a aplicar. Cada filtro tiene:
+- **ID único** (clave del dict): Identifica el filtro semánticamente
 - `filter_name`: Nombre del filtro (debe existir en la biblioteca)
 - `inputs`: Diccionario que mapea las entradas requeridas a salidas de filtros anteriores
 
-Formato de referencias: `"numero_filtro.nombre_output"`
+**Formato de referencias:** `"filter_id.nombre_output"`
+
+**El orden de los filtros en el JSON determina el orden de ejecución.**
 
 ```json
 {
     "filters": {
-        "0": {
+        "resize": {
             "filter_name": "Resize",
+            "description": "Redimensionar imagen inicial",
             "inputs": {}
         },
-        "1": {
+        "grayscale": {
             "filter_name": "Grayscale",
+            "description": "Convertir a escala de grises",
             "inputs": {
-                "input_image": "0.resized_image"
+                "input_image": "resize.resized_image"
             }
         },
-        "2": {
+        "canny": {
             "filter_name": "CannyEdge",
+            "description": "Detectar bordes",
             "inputs": {
-                "input_image": "1.grayscale_image"
+                "input_image": "grayscale.grayscale_image"
             }
         }
     }
 }
 ```
 
-### (B) params.json - Parámetros Guardados
+#### Características del sistema de IDs:
+
+- **Legibilidad**: `"blur.blurred_image"` es más claro que un número
+- **Inserción fácil**: Agregar filtros entre otros es trivial
+- **Orden implícito**: El orden visual en el JSON define el orden de ejecución
+
+#### Insertar filtros entre otros:
+
+```json
+{
+    "filters": {
+        "resize": {...},
+        "grayscale": {...},
+        "denoise": {  // ← NUEVO - Solo lo insertas aquí
+            "filter_name": "DenoiseNLMeans",
+            "inputs": {"input_image": "grayscale.grayscale_image"}
+        },
+        "blur": {
+            "inputs": {"input_image": "denoise.denoised_image"}  // ← Solo cambias esto
+        }
+    }
+}
+```
+
+No necesitas renumerar nada.
+
+### params.json - Parámetros Guardados
 
 Se genera/actualiza automáticamente al presionar 's'.
 Si no existe, los filtros usan sus valores por defecto.
 
-**Importante**: Los parámetros se guardan por índice numérico. Si modificas `pipeline.json`, ejecuta `sync_pipeline_params.py` para mantener la sincronización.
+Los parámetros se guardan por ID del filtro:
+
+```json
+{
+    "version": "1.0",
+    "filter_params": {
+        "resize": {
+            "filter_name": "Resize",
+            "params": {
+                "scale_percent": 50,
+                "interpolation": 1
+            }
+        },
+        "blur": {
+            "filter_name": "GaussianBlur",
+            "params": {
+                "kernel_size": 5
+            }
+        }
+    }
+}
+```
+
+Si modificas `pipeline.json`, ejecuta `sync_pipeline_params.py` para mantener sincronización.
 
 ### checkpoint.json - Configuración del Checkpoint
 
 ```json
 {
-    "checkpoint_filter": "2",
+    "checkpoint_filter": "blur",
     "last_modified": "2024-01-15T10:30:00"
 }
 ```
 
 ## Agregar Nuevos Filtros
 
-La biblioteca de filtros está organizada en módulos individuales dentro de `filter_library/`.
-
-### Paso 1: Crear el archivo del filtro
-
-Crear `filter_library/mi_nuevo_filtro.py`:
+Para agregar un filtro a la biblioteca:
 
 ```python
-"""
-Filtro: MiNuevoFiltro
-"""
-
-import cv2
-import numpy as np
-from typing import Dict, Any, List, Tuple
-from .base_filter import BaseFilter, FILTER_REGISTRY
-
-
+# En filter_library/mi_filtro.py
 class MiNuevoFiltro(BaseFilter):
     FILTER_NAME = "MiNuevoFiltro"
     DESCRIPTION = "Descripción del filtro"
+    
     INPUTS = {
-        "input_image": "image"  # Entradas requeridas
+        "input_image": "image"
     }
+    
     OUTPUTS = {
         "mi_output": "image",
         "sample_image": "image"  # OBLIGATORIO para visualización
     }
+    
     PARAMS = {
         "mi_param": {
             "default": 50,
@@ -334,34 +243,28 @@ class MiNuevoFiltro(BaseFilter):
         }
 ```
 
-### Paso 2: Registrar en \_\_init\_\_.py
+El filtro se registra automáticamente al definir la clase.
 
-Editar `filter_library/__init__.py`:
+Luego agregar a `filter_library/__init__.py`:
 
 ```python
-# Agregar el import
-from .mi_nuevo_filtro import MiNuevoFiltro
+from .mi_filtro import MiNuevoFiltro
 
-# Agregar a __all__
 __all__ = [
-    # ... otros filtros ...
+    # ... otros filtros
     "MiNuevoFiltro",
 ]
 ```
 
-El filtro se registra automáticamente al importar el módulo.
-
 Ver documentación completa en:
-- [FILTER_REFERENCE.md](FILTER_REFERENCE.md) - Referencia rápida
-- [FILTER_DEVELOPMENT_GUIDE.md](FILTER_DEVELOPMENT_GUIDE.md) - Guía detallada
+- [FILTER_REFERENCE.md](docs/FILTER_REFERENCE.md) - Referencia rápida
+- [FILTER_DEVELOPMENT_GUIDE.md](docs/FILTER_DEVELOPMENT_GUIDE.md) - Guía detallada
 
 ## Filtros Disponibles
 
-### Filtros Básicos
-
 | Filtro | Descripción | Inputs | Outputs |
 |--------|-------------|--------|---------|
-| `Resize` | Redimensiona la imagen | input_image | resized_image |
+| `Resize` | Redimensiona la imagen | - | resized_image |
 | `BrightnessContrast` | Ajusta brillo y contraste | input_image | adjusted_image |
 | `Grayscale` | Convierte a escala de grises | input_image | grayscale_image |
 | `GaussianBlur` | Aplica desenfoque gaussiano | input_image | blurred_image |
@@ -373,26 +276,12 @@ Ver documentación completa en:
 | `Contours` | Detecta contornos | input_image | contours_data, contour_image |
 | `ColorSpace` | Convierte espacios de color | input_image | converted_image |
 | `OverlayLines` | Visualiza líneas sobre imagen | base_image, lines_data | overlay_image |
+| `ClassifyLinesByAngle` | Clasifica líneas H/V | lines_data, base_image | horizontal_lines, vertical_lines |
+| `SelectBorderLines` | Selecciona líneas de borde | horizontal_lines, vertical_lines | selected_lines |
+| `CalculateQuadCorners` | Calcula esquinas del quad | selected_lines | corners |
+| `DetectPageSkew` | Detecta inclinación de página | lines_data, base_image | skew_angle |
 
-### Filtros Avanzados
-
-| Filtro | Descripción | Inputs | Outputs |
-|--------|-------------|--------|---------|
-| `NormalizePeaks` | Normaliza imagen por picos de histograma | input_image | normalized_image |
-| `MinArcLength` | Filtra contornos por longitud mínima de arco | edge_image, base_image | filtered_edges |
-| `DenoiseNLMeans` | Reducción de ruido Non-Local Means | input_image | denoised_image |
-| `ThresholdAdvanced` | Umbralización con OTSU y adaptativa | input_image | threshold_image |
-| `MorphologyAdvanced` | Morfología con TopHat, BlackHat e inversión | input_image | morphed_image |
-| `ContourSimplify` | Simplifica contornos con approxPolyDP | input_image | contours_data |
-| `HistogramVisualize` | Visualiza histograma con marcadores | input_image | histogram_data |
-
-### Filtros de Detección de Bordes de Página
-
-| Filtro | Descripción | Inputs | Outputs |
-|--------|-------------|--------|---------|
-| `ClassifyLinesByAngle` | Clasifica líneas en horizontales/verticales | lines_data, base_image | horizontal_lines, vertical_lines |
-| `SelectBorderLines` | Selecciona líneas extremas de borde | horizontal_lines, vertical_lines, base_image | selected_lines, selection_metadata |
-| `CalculateQuadCorners` | Calcula 4 esquinas del polígono | selected_lines, selection_metadata, base_image | corners |
+(la lista no es exhaustiva!)
 
 ## Conceptos Clave
 
@@ -410,22 +299,21 @@ El mismo filtro puede usarse múltiples veces en el pipeline con diferentes par�
 
 ```json
 {
-    "0": {"filter_name": "Resize", "params": {"scale": 50}},
-    "1": {"filter_name": "Grayscale", ...},
-    "2": {"filter_name": "Resize", "params": {"scale": 200}}
+    "resize_down": {
+        "filter_name": "Resize",
+        "inputs": {},
+        "params": {"scale_percent": 50}
+    },
+    "grayscale": {
+        "filter_name": "Grayscale",
+        "inputs": {"input_image": "resize_down.resized_image"}
+    },
+    "resize_up": {
+        "filter_name": "Resize",
+        "inputs": {"input_image": "grayscale.grayscale_image"},
+        "params": {"scale_percent": 200}
+    }
 }
-```
-
-### Dimensiones de Imagen
-Si el pipeline incluye un `Resize`, los filtros que necesitan dimensiones deben usar una imagen de referencia del pipeline, no `original_image`:
-
-```python
-# Incorrecto
-h, w = original_image.shape[:2]
-
-# Correcto
-base_img = inputs.get("base_image", original_image)
-h, w = base_img.shape[:2]
 ```
 
 ## Scripts Disponibles
@@ -456,11 +344,13 @@ python param_configurator.py --clear-cache
 
 ## Requisitos
 
-- Python 3.8+
+- Python 3.7+
 - OpenCV (`opencv-python`)
 - NumPy
 
+**Nota**: El sistema usa `OrderedDict` para garantizar orden de filtros en Python < 3.7, pero se recomienda Python 3.7+.
+
 ## Documentación Adicional
 
-- **[FILTER_REFERENCE.md](FILTER_REFERENCE.md)** - Referencia rápida para crear filtros
-- **[FILTER_DEVELOPMENT_GUIDE.md](FILTER_DEVELOPMENT_GUIDE.md)** - Guía técnica detallada para desarrolladores
+- **[FILTER_REFERENCE.md](docs/FILTER_REFERENCE.md)** - Referencia rápida para crear filtros
+- **[FILTER_DEVELOPMENT_GUIDE.md](docs/FILTER_DEVELOPMENT_GUIDE.md)** - Guía técnica detallada
