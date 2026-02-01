@@ -221,7 +221,9 @@ __marimo__/
 pipeline.json
 checkpoint.json
 params.json
+batch_config.json
 
 # source raw images form processing
 __raw/
+__processed/
 sandbox/
