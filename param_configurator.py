@@ -252,9 +252,10 @@ class CacheManager:
 class PipelineProcessor:
     """Procesa el pipeline de filtros"""
     
-    def __init__(self, pipeline_path: str, params_path: str):
+    def __init__(self, pipeline_path: str, params_path: str, without_preview: bool = False):
         self.pipeline_path = pipeline_path
         self.params_path = params_path
+        self.without_preview = without_preview  # ← NUEVO
         self.pipeline: OrderedDict = OrderedDict()
         self.saved_params: Dict = {}
         self.filter_instances: Dict[str, BaseFilter] = {}
@@ -335,8 +336,8 @@ class PipelineProcessor:
             params = None
             if filter_id in self.saved_params:
                 params = self.saved_params[filter_id].get('params', {})
-            
-            self.filter_instances[filter_id] = filter_class(params)
+
+            self.filter_instances[filter_id] = filter_class(params, without_preview=self.without_preview)
             print(f"  Filtro {filter_id}: {filter_name} instanciado")
     
     def validate_pipeline(self) -> List[str]:
@@ -406,7 +407,31 @@ class PipelineProcessor:
         self.filter_outputs[filter_id] = outputs
         
         return outputs
-    
+
+    def process_up_to(self, target_id: str, original_image: np.ndarray) -> Dict[str, Any]:
+        """
+        Procesa todos los filtros hasta el ID especificado (sin cache).
+        Versión simplificada sin cache para batch processing.
+        
+        Args:
+            target_id: ID del filtro objetivo
+            original_image: Imagen original
+        
+        Returns:
+            Outputs del filtro objetivo
+        """
+        self.filter_outputs = {}
+        
+        sorted_ids = self.get_sorted_ids()
+        target_order = self.filter_order.get(target_id, 999)
+        
+        for filter_id in sorted_ids:
+            if self.filter_order.get(filter_id, 999) > target_order:
+                break
+            self.process_filter(filter_id, original_image)
+        
+        return self.filter_outputs.get(target_id, {})    
+
     def process_up_to_with_cache(self, target_id: str, original_image: np.ndarray,
                                   cache_manager: CacheManager, image_name: str,
                                   ignore_cache: bool = False) -> Dict[str, Any]:
