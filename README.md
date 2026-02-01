@@ -44,14 +44,16 @@ Copista-Pipeline/
 |       ├── params.json         # Parámetros guardados de los filtros
 |       ├── checkpoints.json    # Configuración de los checkpoints de cache
 |       └── batch_config.json   # Configuración de procesamiento en lote
-└── __data/
-    └── raw/                    # Cache de filtros (generado automáticamente)
+└── __data/                     # (el repo aun no tiene ejemplos de datos imagenes!)
+    └── raw/
         └── .cache/             # Cache de filtros (generado automáticamente)
             └── {filtro_id}/
                 └── {imagen}.png
 ```
 
-## Controles del Configurador GUI
+## Configurador GUI - param_configurator.py
+
+### Controles
 
 | Tecla | Acción |
 |-------|--------|
@@ -68,7 +70,7 @@ Copista-Pipeline/
 | `h` | Mostrar ayuda del filtro actual |
 | `q` / `ESC` | Salir |
 
-## Sistema de Cache (Checkpoints)
+### Sistema de Cache (Checkpoints)
 
 El sistema permite marcar filtros como "checkpoints" para acelerar el procesamiento.
 
@@ -78,6 +80,8 @@ El sistema permite marcar filtros como "checkpoints" para acelerar el procesamie
 2. **Generación de cache**: Al navegar imágenes, se guarda automáticamente el resultado del checkpoint en `.cache/{filtro_id}/{imagen}.png`
 3. **Uso del cache**: Si estás visualizando un filtro posterior al último checkpoint (ej: filtro `canny`), los filtros anteriores no se ejecutan - se carga directamente desde cache
 
+Usar checkpoints puede mejorar significativamente el rendimiento en filtros que generan visualizaciones complejas.
+
 ### Modificación de parámetros previos al último checkpoint
 
 Si modificas parámetros de un filtro anterior o igual al último checkpoint:
@@ -85,9 +89,22 @@ Si modificas parámetros de un filtro anterior o igual al último checkpoint:
 - El cache **no se borra** hasta que guardes con `s`
 - Al guardar, se muestra una advertencia y se borra el cache
 
+### checkpoints.json - Configuración del Checkpoint
+
+```json
+{
+    "checkpoints": [
+        "resize",
+        "denoise"
+    ],
+    "last_modified": "2025-01-31T10:30:00"
+}
+```
 Ver mas detalle en [docs/Documentación/FUNCIONAMIENTO_DE_CACHE_Y_CHECKPOINTS.md](docs/Documentación/FUNCIONAMIENTO_DE_CACHE_Y_CHECKPOINTS.md)
 
-## Archivos de Configuración
+---
+
+## Filtros: Archivos de Configuración
 
 ### pipeline.json - Configuración del Pipeline
 
@@ -152,8 +169,6 @@ Define la cadena de filtros a aplicar. Cada filtro tiene:
 }
 ```
 
-No necesitas renumerar nada.
-
 ### params.json - Parámetros Guardados
 
 Se genera/actualiza automáticamente al presionar 's'.
@@ -183,18 +198,6 @@ Los parámetros se guardan por ID del filtro:
 ```
 
 Si modificas `pipeline.json`, ejecuta `sync_pipeline_params.py` para mantener sincronización.
-
-### checkpoints.json - Configuración del Checkpoint
-
-```json
-{
-    "checkpoints": [
-        "resize",
-        "denoise"
-    ],
-    "last_modified": "2025-01-31T10:30:00"
-}
-```
 
 ## Agregar Nuevos Filtros
 
@@ -277,16 +280,8 @@ Ver documentación completa en:
 ### Batch Processing (sin previews)
 
 Para procesamiento por lotes que no requiere visualización:
-```python
-processor = PipelineProcessor(
-    "pipeline.json",
-    "params.json",
-    without_preview=True  # Omite generación de sample_image
-)
-```
 
-Esto puede mejorar significativamente el rendimiento en filtros que
-generan visualizaciones complejas.
+ToDo
 
 ## Conceptos Clave
 
@@ -326,25 +321,26 @@ El mismo filtro puede usarse múltiples veces en el pipeline con diferentes par�
 | Script | Propósito |
 |--------|-----------|
 | `param_configurator.py` | Configurador GUI principal |
+| `batch_processor.py` | Procesamiento en lote |
 | `sync_pipeline_params.py` | Sincronizador de pipeline.json ↔ params.json |
 
 ## Comandos Útiles
 
 ```bash
 # Ejecutar configurador
-python param_configurator.py [carpeta_imagenes]
+python bin/param_configurator.py [carpeta_imagenes] --pipeline [pipeline_json_files]
 
 # Validar sincronización sin GUI
-python sync_pipeline_params.py --validate-only
+python bin/sync_pipeline_params.py --validate-only
 
 # Limpiar parámetros huérfanos automáticamente
-python sync_pipeline_params.py --auto-clean
+python bin/sync_pipeline_params.py --auto-clean
 
 # Resolver problemas interactivamente
-python sync_pipeline_params.py
+python bin/sync_pipeline_params.py
 
 # Limpiar todo el cache
-python param_configurator.py --clear-cache
+python bin/param_configurator.py --clear-cache
 ```
 
 ## Requisitos
@@ -352,6 +348,7 @@ python param_configurator.py --clear-cache
 - Python 3.7+
 - OpenCV (`opencv-python`)
 - NumPy
+- tqdm
 
 **Nota**: El sistema usa `OrderedDict` para garantizar orden de filtros en Python < 3.7, pero se recomienda Python 3.7+.
 
