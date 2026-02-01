@@ -306,14 +306,20 @@ class DetectPageSkew(BaseFilter):
         
         if not lines_data:
             # Sin líneas, retornar skew 0
-            return {
+            result = {
                 "skew_angle": 0.0,
                 "skew_metadata": {
                     "error": "No lines provided",
                     "total_lines": 0
-                },
-                "sample_image": base_img if len(base_img.shape) == 3 else cv2.cvtColor(base_img, cv2.COLOR_GRAY2BGR)
+                }
             }
+            
+            # Solo generar sample_image si no estamos en modo without_preview
+            if not self.without_preview:
+                sample = base_img if len(base_img.shape) == 3 else cv2.cvtColor(base_img, cv2.COLOR_GRAY2BGR)
+                result["sample_image"] = sample
+            
+            return result
         
         # Obtener parámetros
         bin_size = self.params["angle_bin_size"]
@@ -396,56 +402,61 @@ class DetectPageSkew(BaseFilter):
             "final_skew_angle": float(skew_angle)
         }
         
-        # Identificar líneas de cada cluster para visualización
-        h_cluster_lines = []
-        v_cluster_lines = []
-        
-        if h_count > 0:
-            h_cluster_lines = [
-                line for i, line in enumerate(h_lines)
-                if abs(h_angles_norm[i] - h_angle) < (bin_size / 10.0)
-            ]
-        
-        if v_count > 0:
-            v_cluster_lines = [
-                line for i, line in enumerate(v_lines)
-                if abs(v_angles_norm[i] - v_angle) < (bin_size / 10.0)
-            ]
-        
-        # Crear visualización
-        if vis_mode == 0:
-            # Solo histograma
-            sample = self._create_histogram_visualization(
-                h_angles_norm, v_angles_norm, h_angle if h_count > 0 else None, 
-                v_angle if v_count > 0 else None
-            )
-        elif vis_mode == 1:
-            # Solo líneas coloreadas
-            sample = self._create_lines_visualization(
-                base_img, lines_data, h_cluster_lines, v_cluster_lines, skew_angle
-            )
-        else:
-            # Ambos - split screen
-            hist_vis = self._create_histogram_visualization(
-                h_angles_norm, v_angles_norm, h_angle if h_count > 0 else None,
-                v_angle if v_count > 0 else None
-            )
-            lines_vis = self._create_lines_visualization(
-                base_img, lines_data, h_cluster_lines, v_cluster_lines, skew_angle
-            )
-            
-            # Redimensionar para combinar
-            h_img = base_img.shape[0]
-            w_img = base_img.shape[1]
-            
-            # Resize histogram para que coincida en altura
-            hist_vis_resized = cv2.resize(hist_vis, (w_img, h_img // 3))
-            
-            # Combinar verticalmente
-            sample = np.vstack([hist_vis_resized, lines_vis])
-        
-        return {
+        result = {
             "skew_angle": float(skew_angle),
-            "skew_metadata": metadata,
-            "sample_image": sample
+            "skew_metadata": metadata
         }
+        
+        # Solo generar visualización si no estamos en modo without_preview
+        if not self.without_preview:
+            # Identificar líneas de cada cluster para visualización
+            h_cluster_lines = []
+            v_cluster_lines = []
+            
+            if h_count > 0:
+                h_cluster_lines = [
+                    line for i, line in enumerate(h_lines)
+                    if abs(h_angles_norm[i] - h_angle) < (bin_size / 10.0)
+                ]
+            
+            if v_count > 0:
+                v_cluster_lines = [
+                    line for i, line in enumerate(v_lines)
+                    if abs(v_angles_norm[i] - v_angle) < (bin_size / 10.0)
+                ]
+            
+            # Crear visualización según modo
+            if vis_mode == 0:
+                # Solo histograma
+                sample = self._create_histogram_visualization(
+                    h_angles_norm, v_angles_norm, h_angle if h_count > 0 else None, 
+                    v_angle if v_count > 0 else None
+                )
+            elif vis_mode == 1:
+                # Solo líneas coloreadas
+                sample = self._create_lines_visualization(
+                    base_img, lines_data, h_cluster_lines, v_cluster_lines, skew_angle
+                )
+            else:
+                # Ambos - split screen
+                hist_vis = self._create_histogram_visualization(
+                    h_angles_norm, v_angles_norm, h_angle if h_count > 0 else None,
+                    v_angle if v_count > 0 else None
+                )
+                lines_vis = self._create_lines_visualization(
+                    base_img, lines_data, h_cluster_lines, v_cluster_lines, skew_angle
+                )
+                
+                # Redimensionar para combinar
+                h_img = base_img.shape[0]
+                w_img = base_img.shape[1]
+                
+                # Resize histogram para que coincida en altura
+                hist_vis_resized = cv2.resize(hist_vis, (w_img, h_img // 3))
+                
+                # Combinar verticalmente
+                sample = np.vstack([hist_vis_resized, lines_vis])
+            
+            result["sample_image"] = sample
+        
+        return result

@@ -1,5 +1,5 @@
 """
-Filtro: CalculateQuadCorners - MEJORADO
+Filtro: CalculateQuadCorners
 """
 
 import cv2
@@ -22,7 +22,7 @@ class CalculateQuadCorners(BaseFilter):
     
     OUTPUTS = {
         "corners": "quad_points",
-        "corners_metadata": "metadata",  # ✅ NUEVO
+        "corners_metadata": "metadata",
         "corners_image": "image",
         "sample_image": "image"
     }
@@ -199,12 +199,6 @@ class CalculateQuadCorners(BaseFilter):
             else:
                 corners[corner_name] = None
         
-        # Crear imagen de visualización usando base_img
-        if len(base_img.shape) == 2:
-            vis_img = cv2.cvtColor(base_img, cv2.COLOR_GRAY2BGR)
-        else:
-            vis_img = base_img.copy()
-        
         # Recolectar esquinas válidas en orden para el polígono
         corner_order = ["top_left", "top_right", "bottom_right", "bottom_left"]
         valid_corners = []
@@ -213,7 +207,7 @@ class CalculateQuadCorners(BaseFilter):
             if corners.get(name) is not None:
                 valid_corners.append((corners[name]["x"], corners[name]["y"]))
         
-        # ✅ NUEVO: Crear metadata separado
+        # Crear metadata separado
         corners_metadata = {
             "image_width": int(w),
             "image_height": int(h),
@@ -222,45 +216,57 @@ class CalculateQuadCorners(BaseFilter):
             "valid": False
         }
         
-        # Dibujar polígono si tenemos las 4 esquinas
+        # Calcular área del polígono si tenemos las 4 esquinas
         if len(valid_corners) == 4:
             polygon = np.array(valid_corners, dtype=np.int32)
-            cv2.polylines(vis_img, [polygon], True, polygon_color, thickness)
-            
-            # Calcular área
             area = cv2.contourArea(polygon)
             area_percentage = (area / (w * h)) * 100
             
-            # ✅ MODIFICADO: Agregar a metadata separado (sin prefijo _)
             corners_metadata["valid"] = True
             corners_metadata["polygon_area"] = float(area)
             corners_metadata["polygon_area_percent"] = round(area_percentage, 2)
         
-        # Dibujar esquinas
-        for name in corner_order:
-            corner = corners.get(name)
-            if corner is not None and "x" in corner:
-                pt = (corner["x"], corner["y"])
-                cv2.circle(vis_img, pt, radius, corner_color, -1)
-                cv2.circle(vis_img, pt, radius + 3, corner_color, 2)
-                
-                if draw_labels == 1:
-                    # Ajustar posición del label según la esquina
-                    if "left" in name:
-                        label_x = pt[0] + radius + 5
-                    else:
-                        label_x = pt[0] - radius - 80
-                    if "top" in name:
-                        label_y = pt[1] + radius + 20
-                    else:
-                        label_y = pt[1] - radius - 5
-                    
-                    cv2.putText(vis_img, name, (label_x, label_y),
-                                cv2.FONT_HERSHEY_SIMPLEX, 0.5, corner_color, 1)
-        
-        return {
+        result = {
             "corners": corners,
-            "corners_metadata": corners_metadata,  # ✅ NUEVO OUTPUT SEPARADO
-            "corners_image": vis_img,
-            "sample_image": vis_img
+            "corners_metadata": corners_metadata
         }
+        
+        # Solo generar visualización si no estamos en modo without_preview
+        if not self.without_preview:
+            # Crear imagen de visualización usando base_img
+            if len(base_img.shape) == 2:
+                vis_img = cv2.cvtColor(base_img, cv2.COLOR_GRAY2BGR)
+            else:
+                vis_img = base_img.copy()
+            
+            # Dibujar polígono si tenemos las 4 esquinas
+            if len(valid_corners) == 4:
+                polygon = np.array(valid_corners, dtype=np.int32)
+                cv2.polylines(vis_img, [polygon], True, polygon_color, thickness)
+            
+            # Dibujar esquinas
+            for name in corner_order:
+                corner = corners.get(name)
+                if corner is not None and "x" in corner:
+                    pt = (corner["x"], corner["y"])
+                    cv2.circle(vis_img, pt, radius, corner_color, -1)
+                    cv2.circle(vis_img, pt, radius + 3, corner_color, 2)
+                    
+                    if draw_labels == 1:
+                        # Ajustar posición del label según la esquina
+                        if "left" in name:
+                            label_x = pt[0] + radius + 5
+                        else:
+                            label_x = pt[0] - radius - 80
+                        if "top" in name:
+                            label_y = pt[1] + radius + 20
+                        else:
+                            label_y = pt[1] - radius - 5
+                        
+                        cv2.putText(vis_img, name, (label_x, label_y),
+                                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, corner_color, 1)
+            
+            result["corners_image"] = vis_img
+            result["sample_image"] = vis_img
+        
+        return result

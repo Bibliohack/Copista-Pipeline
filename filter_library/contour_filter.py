@@ -20,7 +20,7 @@ class ContourFilter(BaseFilter):
     
     OUTPUTS = {
         "contours_data": "contours",
-        "contours_metadata": "metadata",  # ✅ NUEVO
+        "contours_metadata": "metadata",
         "contour_image": "image",
         "sample_image": "image"
     }
@@ -94,7 +94,7 @@ class ContourFilter(BaseFilter):
     def process(self, inputs: Dict[str, Any], original_image: np.ndarray) -> Dict[str, Any]:
         input_img = inputs.get("input_image", original_image)
         
-        h, w = input_img.shape[:2]  # ✅ Obtener dimensiones
+        h, w = input_img.shape[:2]
         
         # Convertir a grayscale y binarizar si es necesario
         if len(input_img.shape) == 3:
@@ -118,15 +118,6 @@ class ContourFilter(BaseFilter):
         min_area = self.params["min_area"]
         filtered_contours = [c for c in contours if cv2.contourArea(c) >= min_area]
         
-        # Crear imagen de contornos
-        if len(input_img.shape) == 3:
-            contour_img = input_img.copy()
-        else:
-            contour_img = cv2.cvtColor(input_img, cv2.COLOR_GRAY2BGR)
-        
-        color = (self.params["color_b"], self.params["color_g"], self.params["color_r"])
-        cv2.drawContours(contour_img, filtered_contours, -1, color, self.params["draw_thickness"])
-        
         # Preparar datos de contornos
         contours_data = []
         total_area = 0
@@ -147,7 +138,7 @@ class ContourFilter(BaseFilter):
                 "points": c.tolist()
             })
         
-        # ✅ NUEVO: Metadata con dimensiones e información de contornos
+        # Metadata con dimensiones e información de contornos
         image_area = w * h
         metadata = {
             "image_width": int(w),
@@ -162,9 +153,23 @@ class ContourFilter(BaseFilter):
             "coverage_percent": round((total_area / image_area) * 100, 2) if image_area > 0 else 0
         }
         
-        return {
+        result = {
             "contours_data": contours_data,
-            "contours_metadata": metadata,  # ✅ NUEVO OUTPUT
-            "contour_image": contour_img,
-            "sample_image": contour_img
+            "contours_metadata": metadata
         }
+        
+        # Solo generar visualización si no estamos en modo without_preview
+        if not self.without_preview:
+            # Crear imagen de contornos
+            if len(input_img.shape) == 3:
+                contour_img = input_img.copy()
+            else:
+                contour_img = cv2.cvtColor(input_img, cv2.COLOR_GRAY2BGR)
+            
+            color = (self.params["color_b"], self.params["color_g"], self.params["color_r"])
+            cv2.drawContours(contour_img, filtered_contours, -1, color, self.params["draw_thickness"])
+            
+            result["contour_image"] = contour_img
+            result["sample_image"] = contour_img
+        
+        return result

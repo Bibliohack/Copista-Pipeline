@@ -27,8 +27,16 @@ class BaseFilter(ABC):
         if hasattr(cls, 'FILTER_NAME') and cls.FILTER_NAME != "base":
             FILTER_REGISTRY[cls.FILTER_NAME] = cls
     
-    def __init__(self, params: Dict[str, Any] = None):
-        """Inicializa el filtro con parámetros"""
+    def __init__(self, params: Dict[str, Any] = None, without_preview: bool = False):
+        """
+        Inicializa el filtro con parámetros
+        
+        Args:
+            params: Diccionario con valores de parámetros del filtro
+            without_preview: Si True, el filtro puede omitir la generación de sample_image
+                           (por defecto False, para compatibilidad con param_configurator.py)
+        """
+        self.without_preview = without_preview
         self.params = {}
         # Cargar defaults
         for name, config in self.PARAMS.items():
@@ -95,6 +103,7 @@ class BaseFilter(ABC):
             original_image: imagen original sin procesar
             
         Returns:
-            dict con los outputs producidos (siempre debe incluir 'sample_image')
+            dict con los outputs producidos. Debe incluir 'sample_image' a menos que
+            self.without_preview sea True (en cuyo caso es opcional).
         """
         pass

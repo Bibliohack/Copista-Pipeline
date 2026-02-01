@@ -40,6 +40,26 @@ class MiFiltro(BaseFilter):
         }
 ```
 
+### Filtro que puede omitir preview (para batch processing)
+
+```python
+def process(self, inputs: Dict[str, Any], original_image: np.ndarray) -> Dict[str, Any]:
+    img = inputs.get("input_image", original_image)
+    
+    # ... procesamiento de datos ...
+    result = {
+        "lines_data": lines_data,
+        "lines_metadata": metadata
+    }
+    
+    # Generar preview solo si es necesario
+    if not self.without_preview:
+        sample = self._create_visualization(...)
+        result["sample_image"] = sample
+    
+    return result
+```
+
 ### Filtro que produce datos con coordenadas
 
 ```python
@@ -82,7 +102,9 @@ class DetectLines(BaseFilter):
 
 ## Reglas
 
-1. **OUTPUTS siempre debe incluir `"sample_image": "image"`** - Es lo que muestra el visualizador
+1. **OUTPUTS siempre debe incluir `"sample_image": "image"`**
+   - El filtro puede omitir la generación de sample_image si `self.without_preview == True`
+   - Por defecto `without_preview = False` (compatible con param_configurator.py)
 
 2. **Tipos de datos para INPUTS/OUTPUTS:**
    - `"image"` → numpy.ndarray (BGR o grayscale)

@@ -1,22 +1,4 @@
 """
-Filtros mejorados con metadata de dimensiones de imagen
-========================================================
-
-Todos los filtros que generan datos numéricos (líneas, contornos) ahora
-incluyen un output adicional "*_metadata" con las dimensiones de la imagen
-de referencia.
-
-Esto permite:
-- Escalar coordenadas entre diferentes resoluciones
-- Validar que coordenadas estén dentro de límites
-- Contextualizar métricas como áreas y perímetros
-"""
-
-# ==============================================================================
-# 1. ClassifyLinesByAngle - MEJORADO
-# ==============================================================================
-
-"""
 Filtro: ClassifyLinesByAngle
 """
 
@@ -41,7 +23,7 @@ class ClassifyLinesByAngle(BaseFilter):
         "horizontal_lines": "lines",
         "vertical_lines": "lines",
         "other_lines": "lines",
-        "lines_metadata": "metadata",  # ✅ NUEVO
+        "lines_metadata": "metadata",
         "classified_image": "image",
         "sample_image": "image"
     }
@@ -173,11 +155,6 @@ class ClassifyLinesByAngle(BaseFilter):
         vertical_lines = []
         other_lines = []
         
-        if len(base_img.shape) == 2:
-            vis_img = cv2.cvtColor(base_img, cv2.COLOR_GRAY2BGR)
-        else:
-            vis_img = base_img.copy()
-        
         for line in lines_data:
             points = self._convert_to_points_format(line, base_img.shape)
             if points is None:
@@ -194,18 +171,12 @@ class ClassifyLinesByAngle(BaseFilter):
             
             if self._is_horizontal(x1, y1, x2, y2, tolerance):
                 horizontal_lines.append(line_record)
-                cv2.line(vis_img, (x1, y1), (x2, y2), h_color, thickness)
             elif self._is_vertical(x1, y1, x2, y2, tolerance):
                 vertical_lines.append(line_record)
-                cv2.line(vis_img, (x1, y1), (x2, y2), v_color, thickness)
             else:
                 other_lines.append(line_record)
-                cv2.line(vis_img, (x1, y1), (x2, y2), (128, 128, 128), 1)
         
-        cv2.putText(vis_img, f"H:{len(horizontal_lines)} V:{len(vertical_lines)} Other:{len(other_lines)}",
-                    (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
-        
-        # ✅ NUEVO: Metadata con dimensiones de imagen
+        # Metadata con dimensiones de imagen
         metadata = {
             "image_width": int(w),
             "image_height": int(h),
@@ -216,11 +187,35 @@ class ClassifyLinesByAngle(BaseFilter):
             "angle_tolerance": tolerance
         }
         
-        return {
+        result = {
             "horizontal_lines": horizontal_lines,
             "vertical_lines": vertical_lines,
             "other_lines": other_lines,
-            "lines_metadata": metadata,  # ✅ NUEVO OUTPUT
-            "classified_image": vis_img,
-            "sample_image": vis_img
+            "lines_metadata": metadata
         }
+        
+        # Solo generar visualización si no estamos en modo without_preview
+        if not self.without_preview:
+            if len(base_img.shape) == 2:
+                vis_img = cv2.cvtColor(base_img, cv2.COLOR_GRAY2BGR)
+            else:
+                vis_img = base_img.copy()
+            
+            # Dibujar líneas clasificadas
+            for line in horizontal_lines:
+                cv2.line(vis_img, (line["x1"], line["y1"]), (line["x2"], line["y2"]), h_color, thickness)
+            
+            for line in vertical_lines:
+                cv2.line(vis_img, (line["x1"], line["y1"]), (line["x2"], line["y2"]), v_color, thickness)
+            
+            for line in other_lines:
+                cv2.line(vis_img, (line["x1"], line["y1"]), (line["x2"], line["y2"]), (128, 128, 128), 1)
+            
+            # Agregar texto informativo
+            cv2.putText(vis_img, f"H:{len(horizontal_lines)} V:{len(vertical_lines)} Other:{len(other_lines)}",
+                        (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
+            
+            result["classified_image"] = vis_img
+            result["sample_image"] = vis_img
+        
+        return result

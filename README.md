@@ -6,7 +6,7 @@ Sistema en Python para aplicar una sucesión configurable de filtros sobre imág
 
 ```bash
 # Instalar dependencias
-pip install opencv-python numpy
+pip install opencv-python numpy python3-tqdm
 
 # Crear los archivos de configuración desde los ejemplos
 cp samples/pipeline.json pipeline.json
@@ -265,6 +265,20 @@ Ver documentación completa en:
 | `DetectPageSkew` | Detecta inclinación de página | lines_data, base_image | skew_angle |
 
 (la lista no es exhaustiva!)
+
+### Batch Processing (sin previews)
+
+Para procesamiento por lotes que no requiere visualización:
+```python
+processor = PipelineProcessor(
+    "pipeline.json",
+    "params.json",
+    without_preview=True  # Omite generación de sample_image
+)
+```
+
+Esto puede mejorar significativamente el rendimiento en filtros que
+generan visualizaciones complejas.
 
 ## Conceptos Clave
 

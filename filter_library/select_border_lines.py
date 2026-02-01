@@ -15,7 +15,7 @@ class SelectBorderLines(BaseFilter):
     DESCRIPTION = "Selecciona 4 líneas de borde (top, bottom, left, right) usando lógica de clustering y márgenes. Si no hay línea válida, usa el borde de imagen."
     
     INPUTS = {
-        "base_image": "image",  # <-- AÑADIDO: para visualización
+        "base_image": "image",
         "horizontal_lines": "lines",
         "vertical_lines": "lines"
     }
@@ -152,9 +152,9 @@ class SelectBorderLines(BaseFilter):
     def process(self, inputs: Dict[str, Any], original_image: np.ndarray) -> Dict[str, Any]:
         horizontal_lines = inputs.get("horizontal_lines", [])
         vertical_lines = inputs.get("vertical_lines", [])
-        base_img = inputs.get("base_image", original_image)  # <-- MODIFICADO: fallback con advertencia
+        base_img = inputs.get("base_image", original_image)
         
-        h, w = base_img.shape[:2]  # <-- Usar base_img, no original_image
+        h, w = base_img.shape[:2]
         center_x, center_y = w // 2, h // 2
         
         # Obtener parámetros
@@ -341,29 +341,6 @@ class SelectBorderLines(BaseFilter):
         else:
             metadata["right_is_image_border"] = True
         
-        # Crear imagen de visualización usando base_img
-        if len(base_img.shape) == 2:
-            vis_img = cv2.cvtColor(base_img, cv2.COLOR_GRAY2BGR)
-        else:
-            vis_img = base_img.copy()
-        
-        # Dibujar líneas seleccionadas o bordes de imagen
-        for name, line in selected.items():
-            is_border = metadata.get(f"{name}_is_image_border", False)
-            
-            if line is not None:
-                x1, y1, x2, y2 = line["x1"], line["y1"], line["x2"], line["y2"]
-                cv2.line(vis_img, (x1, y1), (x2, y2), selected_color, thickness + 1)
-            elif is_border:
-                if name == "top":
-                    cv2.line(vis_img, (0, 0), (w, 0), border_color, thickness)
-                elif name == "bottom":
-                    cv2.line(vis_img, (0, h-1), (w, h-1), border_color, thickness)
-                elif name == "left":
-                    cv2.line(vis_img, (0, 0), (0, h), border_color, thickness)
-                elif name == "right":
-                    cv2.line(vis_img, (w-1, 0), (w-1, h), border_color, thickness)
-        
         # Convertir selected a formato serializable (sin 'pos')
         selected_clean = {}
         for name, line in selected.items():
@@ -376,9 +353,37 @@ class SelectBorderLines(BaseFilter):
             else:
                 selected_clean[name] = None
         
-        return {
+        result = {
             "selected_lines": selected_clean,
-            "selection_metadata": metadata,
-            "selected_image": vis_img,
-            "sample_image": vis_img
+            "selection_metadata": metadata
         }
+        
+        # Solo generar visualización si no estamos en modo without_preview
+        if not self.without_preview:
+            # Crear imagen de visualización usando base_img
+            if len(base_img.shape) == 2:
+                vis_img = cv2.cvtColor(base_img, cv2.COLOR_GRAY2BGR)
+            else:
+                vis_img = base_img.copy()
+            
+            # Dibujar líneas seleccionadas o bordes de imagen
+            for name, line in selected.items():
+                is_border = metadata.get(f"{name}_is_image_border", False)
+                
+                if line is not None:
+                    x1, y1, x2, y2 = line["x1"], line["y1"], line["x2"], line["y2"]
+                    cv2.line(vis_img, (x1, y1), (x2, y2), selected_color, thickness + 1)
+                elif is_border:
+                    if name == "top":
+                        cv2.line(vis_img, (0, 0), (w, 0), border_color, thickness)
+                    elif name == "bottom":
+                        cv2.line(vis_img, (0, h-1), (w, h-1), border_color, thickness)
+                    elif name == "left":
+                        cv2.line(vis_img, (0, 0), (0, h), border_color, thickness)
+                    elif name == "right":
+                        cv2.line(vis_img, (w-1, 0), (w-1, h), border_color, thickness)
+            
+            result["selected_image"] = vis_img
+            result["sample_image"] = vis_img
+        
+        return result

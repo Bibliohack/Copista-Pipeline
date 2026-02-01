@@ -231,6 +231,25 @@ El filtro `denoise` se ejecutará entre `grayscale` y `blur` automáticamente.
 
 ---
 
+## Optimización para Batch Processing
+
+Filtros que producen datos (no imágenes) y cuya visualización es costosa
+pueden verificar `self.without_preview` para omitir la generación de sample_image.
+
+### Cuándo implementar esta optimización:
+
+**SÍ implementar:**
+- Filtros que dibujan visualizaciones complejas (líneas, contornos, gráficos)
+- Cuando generar sample_image tiene costo significativo
+- Ejemplos: HoughLines, ClassifyLinesByAngle, HistogramVisualize
+
+**NO implementar:**
+- Filtros donde sample_image == output principal
+- Cuando generar sample_image no tiene costo extra
+- Ejemplos: CannyEdge, GaussianBlur, Threshold
+
+---
+
 ## Checklist para Nuevo Filtro
 
 - [ ] La clase hereda de `BaseFilter`

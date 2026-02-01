@@ -21,7 +21,7 @@ class HoughLinesFilter(BaseFilter):
     
     OUTPUTS = {
         "lines_data": "lines",
-        "lines_metadata": "metadata",  # ✅ NUEVO
+        "lines_metadata": "metadata",
         "sample_image": "image"
     }
     
@@ -81,16 +81,11 @@ class HoughLinesFilter(BaseFilter):
             else:
                 edge_img = cv2.Canny(base_img, 50, 150)
         
-        h, w = base_img.shape[:2]  # ✅ Obtener dimensiones
+        h, w = base_img.shape[:2]
         
         rho = self.params["rho"]
         theta = np.pi / self.params["theta_divisor"]
         threshold = self.params["threshold"]
-        
-        if len(base_img.shape) == 3:
-            sample = base_img.copy()
-        else:
-            sample = cv2.cvtColor(base_img, cv2.COLOR_GRAY2BGR)
         
         lines_data = []
         method_used = "standard" if self.params["method"] == 0 else "probabilistic"
@@ -101,15 +96,6 @@ class HoughLinesFilter(BaseFilter):
             if lines is not None:
                 for line in lines:
                     rho_val, theta_val = line[0]
-                    a = np.cos(theta_val)
-                    b = np.sin(theta_val)
-                    x0 = a * rho_val
-                    y0 = b * rho_val
-                    x1 = int(x0 + 1000 * (-b))
-                    y1 = int(y0 + 1000 * (a))
-                    x2 = int(x0 - 1000 * (-b))
-                    y2 = int(y0 - 1000 * (a))
-                    cv2.line(sample, (x1, y1), (x2, y2), (0, 255, 0), 2)
                     lines_data.append({"rho": rho_val, "theta": theta_val})
         else:
             # Hough Probabilístico
@@ -121,10 +107,9 @@ class HoughLinesFilter(BaseFilter):
             if lines is not None:
                 for line in lines:
                     x1, y1, x2, y2 = line[0]
-                    cv2.line(sample, (x1, y1), (x2, y2), (0, 255, 0), 2)
                     lines_data.append({"x1": x1, "y1": y1, "x2": x2, "y2": y2})
         
-        # ✅ NUEVO: Metadata con dimensiones e información del método
+        # Metadata con dimensiones e información del método
         metadata = {
             "image_width": int(w),
             "image_height": int(h),
@@ -139,8 +124,36 @@ class HoughLinesFilter(BaseFilter):
             metadata["min_line_length"] = self.params["min_line_length"]
             metadata["max_line_gap"] = self.params["max_line_gap"]
         
-        return {
+        result = {
             "lines_data": lines_data,
-            "lines_metadata": metadata,  # ✅ NUEVO OUTPUT
-            "sample_image": sample
+            "lines_metadata": metadata
         }
+        
+        # Solo generar sample_image si no estamos en modo without_preview
+        if not self.without_preview:
+            if len(base_img.shape) == 3:
+                sample = base_img.copy()
+            else:
+                sample = cv2.cvtColor(base_img, cv2.COLOR_GRAY2BGR)
+            
+            # Dibujar líneas
+            if self.params["method"] == 0 and lines is not None:
+                for line in lines:
+                    rho_val, theta_val = line[0]
+                    a = np.cos(theta_val)
+                    b = np.sin(theta_val)
+                    x0 = a * rho_val
+                    y0 = b * rho_val
+                    x1 = int(x0 + 1000 * (-b))
+                    y1 = int(y0 + 1000 * (a))
+                    x2 = int(x0 - 1000 * (-b))
+                    y2 = int(y0 - 1000 * (a))
+                    cv2.line(sample, (x1, y1), (x2, y2), (0, 255, 0), 2)
+            elif self.params["method"] == 1 and lines is not None:
+                for line in lines:
+                    x1, y1, x2, y2 = line[0]
+                    cv2.line(sample, (x1, y1), (x2, y2), (0, 255, 0), 2)
+            
+            result["sample_image"] = sample
+        
+        return result
