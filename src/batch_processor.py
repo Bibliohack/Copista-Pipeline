@@ -27,8 +27,6 @@ import numpy as np
 from datetime import datetime
 from tqdm import tqdm  # Para progress bar
 
-#root = Path(__file__).resolve().parent.parent
-#sys.path.append(str(root / "src"))
 from core import PipelineProcessor, ImageBrowser
 from filter_library import get_filter
 

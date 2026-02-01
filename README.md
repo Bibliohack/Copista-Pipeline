@@ -25,11 +25,10 @@ python param_configurator.py --clear-cache
 
 ```
 Copista-Pipeline/
-├── bin/                    
+├── src/
 │   ├── param_configurator.py   # GUI para configurar parámetros
 │   ├── batch_processor.py      # Procesamiento en lote
 │   └── sync_pipeline_params.py # Sincronizador pipeline ↔ params
-├── src/
 │   ├── core/                   # Clases compartidas
 │   │   ├── __init__.py
 │   │   └── pipeline_classes.py
@@ -39,11 +38,12 @@ Copista-Pipeline/
 │       ├── resize_filter.py
 │       └── ...
 ├── examples/                   # Ejemplos de configuracion/proyectos
-|   └── Basic_Sample/        
-|       ├── pipeline.json       # Define qué filtros aplicar y sus conexiones
-|       ├── params.json         # Parámetros guardados de los filtros
-|       ├── checkpoints.json    # Configuración de los checkpoints de cache
-|       └── batch_config.json   # Configuración de procesamiento en lote
+|   ├── Basic_Sample/        
+|   |   ├── pipeline.json       # Define qué filtros aplicar y sus conexiones
+|   |   ├── params.json         # Parámetros guardados de los filtros
+|   |   ├── checkpoints.json    # Configuración de los checkpoints de cache
+|   |   └── batch_config.json   # Configuración para procesamiento en lote
+|   └── .../
 └── __data/                     # (el repo aun no tiene ejemplos de datos imagenes!)
     └── raw/
         └── .cache/             # Cache de filtros (generado automáticamente)
@@ -51,7 +51,10 @@ Copista-Pipeline/
                 └── {imagen}.png
 ```
 
-## Configurador GUI - param_configurator.py
+## Configurador de parámetros (con interfaz gráfica) - param_configurator.py
+
+El objetivo de este script es permitir al usuario hacer pruebas en vivo sobre los filtros 
+seleccionados en pipeline.json a través de una GUI y establecer los parametros óptimos
 
 ### Controles
 
@@ -101,6 +104,72 @@ Si modificas parámetros de un filtro anterior o igual al último checkpoint:
 }
 ```
 Ver mas detalle en [docs/Documentación/FUNCIONAMIENTO_DE_CACHE_Y_CHECKPOINTS.md](docs/Documentación/FUNCIONAMIENTO_DE_CACHE_Y_CHECKPOINTS.md)
+
+---
+
+## Batch Processor - batch_processor.py
+
+Este script procesa imágenes en lote sin interfaz gráfica. Aplica los mismos filtros y parámetros definidos en `param_configurator.py` 
+a cada imagen desde una carpeta de origen y genera como salida imágenes o datos en múltiples destinos. El archivo de configuración 
+`batch_config.json` permite seleccionar que filtros generan una salida, hacia que destino y con variantes (prefijo/sufijo) opcionales 
+en el nombre.
+
+### Características
+
+1. **Sin GUI**: Solo terminal con progress bar
+2. **Sin cache**: Procesa todo desde cero
+3. **`without_preview=True`**: Optimizado, sin generar visualizaciones innecesarias
+4. **Multi-target**: Guarda múltiples outputs del pipeline
+5. **Tipos de output soportados**:
+   - `image` → PNG/JPG
+   - `lines`, `contours`, `metadata`, etc. → JSON
+   - `float` → TXT o JSON
+
+**C. Optimización de procesamiento**:
+- Determinar el **último filtro necesario** entre todos los targets
+- Procesar pipeline **una sola vez** hasta ese filtro
+- Extraer múltiples outputs de esa ejecución única
+
+### Ejemplo de configuración - batch_config.json
+
+```json
+{
+  "version": "1.0",
+  "description": "Configuración de ejemplo para batch processing",
+  "source_folder": "../__data/raw",
+  "log_file": "../__data/logs/batch_processing.log",
+  "targets": [
+    {
+      "filter_id": "resize",
+      "output_name": "resized_image",
+      "destination": {
+        "folder": "../__data/processed/resized",
+        "prefix": "",
+        "suffix": "_resized",
+        "extension": "png"
+      }
+    },
+    {
+      "filter_id": "canny_border",
+      "output_name": "edge_image",
+      "destination": {
+        "folder": "../__data/processed/edges",
+        "prefix": "edge_",
+        "suffix": "",
+        "extension": "png"
+      }
+    }
+  ]
+}
+```
+
+#### Validaciones
+
+**B. Validación de targets en batch_config.json**:
+- ✅ `filter_id` existe en pipeline.json
+- ✅ `output_name` existe en `OUTPUTS` del filtro
+- ✅ Carpetas de destino se pueden crear
+- ✅ Extensiones coherentes con tipo de dato
 
 ---
 
@@ -277,11 +346,6 @@ Ver documentación completa en:
 
 (la lista no es exhaustiva!)
 
-### Batch Processing (sin previews)
-
-Para procesamiento por lotes que no requiere visualización:
-
-ToDo
 
 ## Conceptos Clave
 
