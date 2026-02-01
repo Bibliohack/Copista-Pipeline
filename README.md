@@ -8,13 +8,11 @@ Sistema en Python para aplicar una sucesión configurable de filtros sobre imág
 # Instalar dependencias
 pip install opencv-python numpy python3-tqdm
 
-# Crear los archivos de configuración desde los ejemplos
-cp samples/pipeline.json pipeline.json
-cp samples/checkpoints.json checkpoints.json
-cp samples/params.json params.json
-
 # Ejecutar el configurador GUI
-python param_configurator.py [ruta_a_carpeta_imagenes]
+python bin/param_configurator.py [ruta_a_carpeta_imagenes] --pipeline ./examples/Basic_Sample
+
+# Ejecutar el procesamiento en lote
+python bin/batch_processor.py ./examples/Basic_Sample
 
 # Si no se indica ruta, usa el directorio actual
 python param_configurator.py
@@ -26,21 +24,31 @@ python param_configurator.py --clear-cache
 ## Estructura de Archivos
 
 ```
-image_filter_system/
-├── pipeline.json           # Define qué filtros aplicar y sus conexiones
-├── params.json             # Parámetros guardados de los filtros
-├── checkpoints.json         # Configuración del checkpoint de cache
-├── filter_library/         # Biblioteca de filtros disponibles
-│   ├── __init__.py
-│   ├── base_filter.py
-│   ├── resize_filter.py
-│   └── ...
-├── param_configurator.py   # GUI para configurar parámetros
-├── sync_pipeline_params.py # Sincronizador pipeline ↔ params
-└── carpeta_imagenes/
-    └── .cache/             # Cache de filtros (generado automáticamente)
-        └── {filtro_id}/
-            └── {imagen}.png
+Copista-Pipeline/
+├── bin/                    
+│   ├── param_configurator.py   # GUI para configurar parámetros
+│   ├── batch_processor.py      # Procesamiento en lote
+│   └── sync_pipeline_params.py # Sincronizador pipeline ↔ params
+├── src/
+│   ├── core/                   # Clases compartidas
+│   │   ├── __init__.py
+│   │   └── pipeline_classes.py
+│   └── filter_library/         # Biblioteca de filtros disponibles
+│       ├── __init__.py
+│       ├── base_filter.py
+│       ├── resize_filter.py
+│       └── ...
+├── examples/                   # Ejemplos de configuracion/proyectos
+|   └── Basic_Sample/        
+|       ├── pipeline.json       # Define qué filtros aplicar y sus conexiones
+|       ├── params.json         # Parámetros guardados de los filtros
+|       ├── checkpoints.json    # Configuración de los checkpoints de cache
+|       └── batch_config.json   # Configuración de procesamiento en lote
+└── __data/
+    └── raw/                    # Cache de filtros (generado automáticamente)
+        └── .cache/             # Cache de filtros (generado automáticamente)
+            └── {filtro_id}/
+                └── {imagen}.png
 ```
 
 ## Controles del Configurador GUI
@@ -77,7 +85,7 @@ Si modificas parámetros de un filtro anterior o igual al último checkpoint:
 - El cache **no se borra** hasta que guardes con `s`
 - Al guardar, se muestra una advertencia y se borra el cache
 
-Ver mas detalle en [Documentacion/FUNCIONAMIENTO_DE_CACHE_Y_CHECKPOINTS.md](Documentacion/FUNCIONAMIENTO_DE_CACHE_Y_CHECKPOINTS.md)
+Ver mas detalle en [docs/Documentación/FUNCIONAMIENTO_DE_CACHE_Y_CHECKPOINTS.md](docs/Documentación/FUNCIONAMIENTO_DE_CACHE_Y_CHECKPOINTS.md)
 
 ## Archivos de Configuración
 
@@ -349,5 +357,5 @@ python param_configurator.py --clear-cache
 
 ## Documentación Adicional
 
-- **[FILTER_REFERENCE.md](Documentacion/FILTER_REFERENCE.md)** - Referencia rápida para crear filtros
-- **[FILTER_DEVELOPMENT_GUIDE.md](Documentacion/FILTER_DEVELOPMENT_GUIDE.md)** - Guía técnica detallada
+- **[FILTER_REFERENCE.md](docs/Documentación/FILTER_REFERENCE.md)** - Referencia rápida para crear filtros
+- **[FILTER_DEVELOPMENT_GUIDE.md](docs/Documentación/FILTER_DEVELOPMENT_GUIDE.md)** - Guía técnica detallada
