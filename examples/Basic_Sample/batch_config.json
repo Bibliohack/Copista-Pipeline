@@ -1,14 +1,14 @@
 {
   "version": "1.0",
   "description": "Configuración de ejemplo para batch processing",
-  "source_folder": "./__raw",
-  "log_file": "./logs/batch_processing.log",
+  "source_folder": "../__data/raw",
+  "log_file": "../__data/logs/batch_processing.log",
   "targets": [
     {
       "filter_id": "resize",
       "output_name": "resized_image",
       "destination": {
-        "folder": "./__processed/resized",
+        "folder": "../__data/processed/resized",
         "prefix": "",
         "suffix": "_resized",
         "extension": "png"
@@ -18,7 +18,7 @@
       "filter_id": "canny_border",
       "output_name": "edge_image",
       "destination": {
-        "folder": "./__processed/edges",
+        "folder": "../__data/processed/edges",
         "prefix": "edge_",
         "suffix": "",
         "extension": "png"

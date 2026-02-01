@@ -41,6 +41,8 @@ from datetime import datetime
 from typing import Dict, List, Any, Optional, Tuple
 from collections import OrderedDict
 
+root = Path(__file__).resolve().parent.parent
+sys.path.append(str(root / "src"))
 from core import PipelineProcessor, ImageBrowser, CacheManager
 from filter_library import FILTER_REGISTRY, get_filter, list_filters, BaseFilter
 
@@ -532,20 +534,39 @@ def main():
     
     image_folder = "."
     clear_cache = False
+    pipeline_folder = "."  # ← NUEVO
     
     args = sys.argv[1:]
-    for arg in args:
+    
+    # ← NUEVO: Parsear argumentos
+    i = 0
+    while i < len(args):
+        arg = args[i]
         if arg == "--clear-cache":
             clear_cache = True
+            i += 1
+        elif arg == "--pipeline":
+            if i + 1 < len(args):
+                pipeline_folder = args[i + 1]
+                i += 2
+            else:
+                print("Error: --pipeline requiere un valor")
+                sys.exit(1)
         elif not arg.startswith("-"):
             image_folder = arg
+            i += 1
+        else:
+            print(f"Argumento desconocido: {arg}")
+            sys.exit(1)
     
-    script_dir = Path(__file__).parent
-    pipeline_path = script_dir / "pipeline.json"
-    params_path = script_dir / "params.json"
-    checkpoints_path = script_dir / "checkpoints.json"
+    # ← NUEVO: Construir paths completos
+    pipeline_folder = Path(pipeline_folder)
+    pipeline_path = pipeline_folder / "pipeline.json"
+    params_path = pipeline_folder / "params.json"
+    checkpoints_path = pipeline_folder / "checkpoints.json"
     
     print(f"Carpeta de imágenes: {image_folder}")
+    print(f"Carpeta de configuración: {pipeline_folder}")
     print(f"Pipeline: {pipeline_path}")
     print(f"Parámetros: {params_path}")
     print(f"Checkpoint: {checkpoints_path}")

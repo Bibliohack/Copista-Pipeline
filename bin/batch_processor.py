@@ -27,7 +27,10 @@ import numpy as np
 from datetime import datetime
 from tqdm import tqdm  # Para progress bar
 
+root = Path(__file__).resolve().parent.parent
+sys.path.append(str(root / "src"))
 from core import PipelineProcessor, ImageBrowser
+from filter_library import get_filter
 
 # Importar sincronizador para validación
 try:
@@ -35,10 +38,6 @@ try:
 except ImportError:
     PipelineParamsSync = None
     print("⚠️  sync_pipeline_params.py no encontrado - no se validará sincronización")
-
-# Importar biblioteca de filtros para introspección
-from filter_library import get_filter
-
 
 class BatchConfig:
     """Maneja la configuración del procesamiento por lotes"""
@@ -613,25 +612,28 @@ def main():
 Ejemplos:
   python batch_processor.py
   python batch_processor.py --config mi_config.json
-  python batch_processor.py --overwrite
+  python batch_processor.py --pipeline ./configs
+  python batch_processor.py --pipeline ./configs --overwrite
         """
     )
-    parser.add_argument('--config', default='batch_config.json',
-                       help='Ruta al archivo de configuración (default: batch_config.json)')
-    parser.add_argument('--pipeline', default='pipeline.json',
-                       help='Ruta a pipeline.json (default: pipeline.json)')
-    parser.add_argument('--params', default='params.json',
-                       help='Ruta a params.json (default: params.json)')
+    parser.add_argument('--pipeline', default='.',  # ← CAMBIO: era pipeline.json
+                       help='Carpeta donde están los archivos JSON de configuración (default: carpeta actual)')
     parser.add_argument('--overwrite', action='store_true',
                        help='Sobrescribir archivos existentes')
     
     args = parser.parse_args()
     
+    # ← NUEVO: Construir paths completos
+    pipeline_folder = Path(args.pipeline)
+    config_path = pipeline_folder / 'batch_config.json'
+    pipeline_json = pipeline_folder / 'pipeline.json'
+    params_json = pipeline_folder / 'params.json'
+    
     # Crear processor
     processor = BatchProcessor(
-        batch_config_path=args.config,
-        pipeline_path=args.pipeline,
-        params_path=args.params
+        batch_config_path=str(config_path),
+        pipeline_path=str(pipeline_json),
+        params_path=str(params_json)
     )
     
     # Inicializar
@@ -645,4 +647,3 @@ Ejemplos:
 
 if __name__ == "__main__":
     main()
-

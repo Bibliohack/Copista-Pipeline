@@ -1,0 +1,158 @@
+{
+    "version": "1.0",
+    "description": "Par\u00e1metros guardados para los filtros del pipeline",
+    "last_modified": "2026-02-01T04:47:11.320050",
+    "filter_params": {
+        "resize": {
+            "filter_name": "Resize",
+            "params": {
+                "mode": 0,
+                "scale_percent": 50,
+                "width": 640,
+                "height": 480,
+                "interpolation": 1
+            }
+        },
+        "contrast": {
+            "filter_name": "BrightnessContrast",
+            "params": {
+                "brightness": 0,
+                "contrast": 100
+            }
+        },
+        "gray": {
+            "filter_name": "Grayscale",
+            "params": {
+                "method": 0,
+                "weight_r": 30,
+                "weight_g": 59,
+                "weight_b": 11
+            }
+        },
+        "blur": {
+            "filter_name": "GaussianBlur",
+            "params": {
+                "kernel_size": 5,
+                "sigma": 0
+            }
+        },
+        "canny_border": {
+            "filter_name": "CannyEdge",
+            "params": {
+                "threshold1": 50,
+                "threshold2": 150,
+                "aperture_size": 3,
+                "l2_gradient": 0
+            }
+        },
+        "hough_border": {
+            "filter_name": "HoughLines",
+            "params": {
+                "method": 1,
+                "rho": 1,
+                "theta_divisor": 180,
+                "threshold": 120,
+                "min_line_length": 50,
+                "max_line_gap": 30
+            }
+        },
+        "show_hough": {
+            "filter_name": "OverlayLines",
+            "params": {
+                "color_preset": 0,
+                "line_thickness": 2,
+                "alpha": 100
+            }
+        },
+        "angle_classify": {
+            "filter_name": "ClassifyLinesByAngle",
+            "params": {
+                "angle_tolerance": 15,
+                "horizontal_color_r": 255,
+                "horizontal_color_g": 0,
+                "horizontal_color_b": 0,
+                "vertical_color_r": 0,
+                "vertical_color_g": 0,
+                "vertical_color_b": 255,
+                "line_thickness": 2
+            }
+        },
+        "set_borders": {
+            "filter_name": "SelectBorderLines",
+            "params": {
+                "margin_top": 20,
+                "margin_bottom": 10,
+                "margin_left": 30,
+                "margin_right": 30,
+                "cluster_top": 8,
+                "cluster_bottom": 0,
+                "cluster_left": 6,
+                "cluster_right": 6,
+                "line_thickness": 1,
+                "selected_color_r": 5,
+                "selected_color_g": 255,
+                "selected_color_b": 255,
+                "border_color_r": 255,
+                "border_color_g": 165,
+                "border_color_b": 0
+            }
+        },
+        "quad_corners": {
+            "filter_name": "CalculateQuadCorners",
+            "params": {
+                "corner_radius": 10,
+                "corner_color_r": 255,
+                "corner_color_g": 0,
+                "corner_color_b": 255,
+                "polygon_color_r": 0,
+                "polygon_color_g": 255,
+                "polygon_color_b": 255,
+                "polygon_thickness": 3,
+                "draw_labels": 1
+            }
+        },
+        "scale_to_original": {
+            "filter_name": "ScaleQuadCorners",
+            "params": {
+                "scale_mode": 1,
+                "round_coords": 1,
+                "clamp_to_bounds": 0,
+                "visualization_size": 800,
+                "corner_radius": 8,
+                "show_info": 1
+            }
+        },
+        "canny_skew": {
+            "filter_name": "CannyEdge",
+            "params": {
+                "threshold1": 45,
+                "threshold2": 210,
+                "aperture_size": 3,
+                "l2_gradient": 0
+            }
+        },
+        "hough_skew": {
+            "filter_name": "HoughLines",
+            "params": {
+                "method": 1,
+                "rho": 1,
+                "theta_divisor": 180,
+                "threshold": 180,
+                "min_line_length": 90,
+                "max_line_gap": 11
+            }
+        },
+        "get_skew_angle": {
+            "filter_name": "DetectPageSkew",
+            "params": {
+                "angle_bin_size": 12,
+                "min_cluster_size": 5,
+                "h_v_tolerance": 20,
+                "perpendicularity_tolerance": 5,
+                "use_horizontal_only": 0,
+                "use_vertical_only": 1,
+                "visualization_mode": 1
+            }
+        }
+    }
+}

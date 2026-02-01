@@ -21,12 +21,15 @@ Modos:
 
 import json
 import sys
+import os
 from pathlib import Path
 from datetime import datetime
 from collections import OrderedDict
 from typing import Dict, List, Tuple, Optional
 
 # Importar get_filter para validar nombres de filtros
+root = Path(__file__).resolve().parent.parent
+sys.path.append(str(root / "src"))
 try:
     from filter_library import get_filter
 except ImportError:
