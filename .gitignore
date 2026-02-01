@@ -218,10 +218,10 @@ __marimo__/
 #custom
 *_orig[0-9][0-9][0-9].*
 *_orig[0-9][0-9][0-9]/
-pipeline.json
-checkpoint.json
-params.json
-batch_config.json
+/pipeline.json
+/checkpoints.json
+/params.json
+/batch_config.json
 
 # source raw images form processing
 __raw/
