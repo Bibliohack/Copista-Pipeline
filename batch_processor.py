@@ -27,8 +27,7 @@ import numpy as np
 from datetime import datetime
 from tqdm import tqdm  # Para progress bar
 
-# Importar clases reutilizables de param_configurator
-from param_configurator import PipelineProcessor, ImageBrowser
+from core import PipelineProcessor, ImageBrowser
 
 # Importar sincronizador para validación
 try:
