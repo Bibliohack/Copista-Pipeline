@@ -41,8 +41,8 @@ from datetime import datetime
 from typing import Dict, List, Any, Optional, Tuple
 from collections import OrderedDict
 
-root = Path(__file__).resolve().parent.parent
-sys.path.append(str(root / "src"))
+# root = Path(__file__).resolve().parent.parent
+# sys.path.append(str(root / "src"))
 from core import PipelineProcessor, ImageBrowser, CacheManager
 from filter_library import FILTER_REGISTRY, get_filter, list_filters, BaseFilter
 

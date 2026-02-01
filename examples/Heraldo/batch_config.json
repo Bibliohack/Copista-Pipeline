@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "description": "Configuración de ejemplo para batch processing",
-  "source_folder": "../__data/raw",
+  "source_folder": "./__data/raw",
   "log_file": "./__data/logs/batch_processing.log",
   "targets": [
     {
@@ -18,7 +18,7 @@
       "filter_id": "canny_border",
       "output_name": "edge_image",
       "destination": {
-        "folder": "../__data/processed/edges",
+        "folder": "./__data/processed/edges",
         "prefix": "edge_",
         "suffix": "",
         "extension": "png"

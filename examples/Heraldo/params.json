@@ -1,7 +1,7 @@
 {
     "version": "1.0",
-    "description": "Par\u00e1metros guardados para los filtros del pipeline",
-    "last_modified": "2026-02-01T04:47:11.320050",
+    "description": "Parámetros para filtros - Heraldo",
+    "last_modified": "2026-02-01T05:18:54.935996",
     "filter_params": {
         "resize": {
             "filter_name": "Resize",
@@ -151,7 +151,7 @@
                 "perpendicularity_tolerance": 5,
                 "use_horizontal_only": 0,
                 "use_vertical_only": 1,
-                "visualization_mode": 1
+                "visualization_mode": 0
             }
         }
     }
