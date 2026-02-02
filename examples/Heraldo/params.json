@@ -1,15 +1,15 @@
 {
     "version": "1.0",
-    "description": "Parámetros para filtros - Heraldo",
-    "last_modified": "2026-02-01T05:18:54.935996",
+    "description": "Par\u00e1metros guardados para los filtros del pipeline",
+    "last_modified": "2026-02-02T15:36:33.031658",
     "filter_params": {
         "resize": {
             "filter_name": "Resize",
             "params": {
-                "mode": 0,
+                "mode": 2,
                 "scale_percent": 50,
-                "width": 640,
-                "height": 480,
+                "width": 500,
+                "height": 280,
                 "interpolation": 1
             }
         },
@@ -122,36 +122,128 @@
                 "show_info": 1
             }
         },
-        "canny_skew": {
+        "canny_for_calc_rotation": {
             "filter_name": "CannyEdge",
             "params": {
                 "threshold1": 45,
-                "threshold2": 210,
+                "threshold2": 215,
                 "aperture_size": 3,
                 "l2_gradient": 0
             }
         },
-        "hough_skew": {
+        "hough_for_calc_rotation": {
             "filter_name": "HoughLines",
             "params": {
                 "method": 1,
                 "rho": 1,
-                "theta_divisor": 180,
-                "threshold": 180,
-                "min_line_length": 90,
+                "theta_divisor": 190,
+                "threshold": 90,
+                "min_line_length": 100,
                 "max_line_gap": 11
             }
         },
-        "get_skew_angle": {
-            "filter_name": "DetectPageSkew",
+        "get_hv_lines_for_calc_rotation": {
+            "filter_name": "FilterLinesByOrientation",
             "params": {
-                "angle_bin_size": 12,
+                "h_v_tolerance": 3,
+                "horizontal_color_r": 255,
+                "horizontal_color_g": 0,
+                "horizontal_color_b": 0,
+                "vertical_color_r": 0,
+                "vertical_color_g": 255,
+                "vertical_color_b": 255,
+                "oblique_color_r": 128,
+                "oblique_color_g": 128,
+                "oblique_color_b": 128,
+                "line_thickness": 1,
+                "show_oblique": 1,
+                "show_info": 1
+            }
+        },
+        "calc_rotation": {
+            "filter_name": "CalculateRotationFromLines",
+            "params": {
+                "use_mode": 1,
+                "angle_bin_size": 8,
                 "min_cluster_size": 5,
-                "h_v_tolerance": 20,
                 "perpendicularity_tolerance": 5,
-                "use_horizontal_only": 0,
-                "use_vertical_only": 1,
-                "visualization_mode": 0
+                "grid_spacing": 30,
+                "grid_thickness": 1,
+                "grid_color_r": 0,
+                "grid_color_g": 255,
+                "grid_color_b": 0,
+                "grid_alpha": 65,
+                "preview_mode": 0
+            }
+        },
+        "rotate_correct": {
+            "filter_name": "RotateImage",
+            "params": {
+                "angle": 0,
+                "use_input_angle": 1,
+                "interpolation": 1,
+                "background_r": 255,
+                "background_g": 255,
+                "background_b": 255,
+                "invert_angle": 1,
+                "show_info": 1,
+                "show_center": 1
+            }
+        },
+        "rotate_corners": {
+            "filter_name": "RotateQuadCorners",
+            "params": {
+                "angle": 0,
+                "use_input_angle": 1,
+                "invert_angle": 0,
+                "corner_radius": 8,
+                "original_color_r": 0,
+                "original_color_g": 255,
+                "original_color_b": 255,
+                "rotated_color_r": 255,
+                "rotated_color_g": 0,
+                "rotated_color_b": 255,
+                "line_thickness": 2,
+                "show_original": 1,
+                "show_info": 1
+            }
+        },
+        "get_crop_points": {
+            "filter_name": "CalculateRectFromQuadCorners",
+            "params": {
+                "inset": 0,
+                "rect_color_r": 255,
+                "rect_color_g": 255,
+                "rect_color_b": 0,
+                "polygon_color_r": 110,
+                "polygon_color_g": 0,
+                "polygon_color_b": 255,
+                "line_thickness": 1,
+                "show_info": 1
+            }
+        },
+        "crop": {
+            "filter_name": "CropImage",
+            "params": {
+                "use_input_rect": 1,
+                "x1": 0,
+                "y1": 0,
+                "x2": 100,
+                "y2": 100,
+                "clamp_to_image": 1,
+                "min_size": 10,
+                "show_rect_on_original": 0,
+                "rect_color_r": 0,
+                "rect_color_g": 255,
+                "rect_color_b": 0,
+                "rect_thickness": 3
+            }
+        },
+        "orient_page": {
+            "filter_name": "RotateImageOrtho",
+            "params": {
+                "rotation": 3,
+                "show_info": 0
             }
         }
     }

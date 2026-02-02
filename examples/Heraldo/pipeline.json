@@ -93,26 +93,77 @@
                 "target_image": "original.image"
             }
         },
-        "canny_skew": {
+        "canny_for_calc_rotation": {
             "filter_name": "CannyEdge",
             "description": "Detectar bordes",
             "inputs": { "input_image": "original.image" }
         },
-        "hough_skew": {
+        "hough_for_calc_rotation": {
             "filter_name": "HoughLines",
             "description": "Detectar líneas",
             "inputs": {
-                "edge_image": "canny_skew.edge_image",
-        	"base_image": "original.image"
+                "edge_image": "canny_for_calc_rotation.edge_image",
+                	"base_image": "original.image"
             },
             "comment": "Usar method=1 (probabilístico) para obtener formato x1,y1,x2,y2"
         },
-        "get_skew_angle": {
-        	"filter_name": "DetectPageSkew",
-        	"inputs": {
-         		"lines_data": "hough_skew.lines_data",
-         		"base_image": "original.image"
-        	}
+        "get_hv_lines_for_calc_rotation": {
+            "filter_name": "FilterLinesByOrientation",
+            "inputs": {
+                "lines_data": "hough_for_calc_rotation.lines_data",
+                "base_image": "original.image"
+            }
+        },
+	    "calc_rotation": {
+	        "filter_name": "CalculateRotationFromLines",
+            "inputs": {
+                "horizontal_lines": "get_hv_lines_for_calc_rotation.horizontal_lines",
+                "vertical_lines": "get_hv_lines_for_calc_rotation.vertical_lines",
+                "lines_metadata": "get_hv_lines_for_calc_rotation.lines_metadata",
+                "base_image": "original.image"
+            }
+        },
+        "rotate_correct": {
+            "filter_name": "RotateImage",
+            "description": "Corregir rotación automáticamente",
+            "inputs": {
+                "input_image": "original.image",
+                "rotation_angle": "calc_rotation.rotation_angle"
+            }
+        },
+        "rotate_corners": {
+            "filter_name": "RotateQuadCorners",
+            "description": "Rotar las coordenadas de corners para que coincidan con la imagen rotada",
+            "inputs": {
+                "corners": "scale_to_original.scaled_corners",
+                "corners_metadata": "scale_to_original.scaled_metadata",
+                "rotation_angle": "calc_rotation.rotation_angle",
+                "base_image": "rotate_correct.rotated_image"
+            }
+        },
+        "get_crop_points": {
+            "filter_name": "CalculateRectFromQuadCorners",
+            "inputs": {
+                "corners": "rotate_corners.rotated_corners",
+                "corners_metadata": "rotate_corners.rotated_metadata",
+                "base_image": "rotate_correct.rotated_image"
+            }
+        },
+        "crop": {
+            "filter_name": "CropImage",
+            "description": "Recortar según rectángulo calculado",
+            "inputs": {
+                "input_image": "rotate_correct.rotated_image",
+                "crop_rect": "get_crop_points.crop_rect",
+                "crop_metadata": "get_crop_points.crop_metadata"
+            }
+        },
+        "orient_page": {
+            "filter_name": "RotateImageOrtho",
+            "description": "Rotar página escaneada a orientación correcta",
+            "inputs": {
+                "input_image": "crop.cropped_image"
+            }
         }
     }
 }
