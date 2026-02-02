@@ -107,7 +107,7 @@ Ver mas detalle en [docs/Documentación/FUNCIONAMIENTO_DE_CACHE_Y_CHECKPOINTS.md
 
 ---
 
-## Batch Processor - batch_processor.py
+## Procesamiento en Lote (sin interfaz gráfica) - batch_processor.py
 
 Este script procesa imágenes en lote sin interfaz gráfica. Aplica los mismos filtros y parámetros definidos en `param_configurator.py` 
 a cada imagen desde una carpeta de origen y genera como salida imágenes o datos en múltiples destinos. El archivo de configuración 
