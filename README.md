@@ -9,16 +9,16 @@ Sistema en Python para aplicar una sucesión configurable de filtros sobre imág
 pip install opencv-python numpy python3-tqdm
 
 # Ejecutar el configurador GUI
-python bin/param_configurator.py [ruta_a_carpeta_imagenes] --pipeline ./examples/Basic_Sample
+python src/param_configurator.py [ruta_a_carpeta_imagenes] --pipeline ./examples/Basic_Sample
 
 # Ejecutar el procesamiento en lote
-python bin/batch_processor.py ./examples/Basic_Sample
+python src/batch_processor.py ./examples/Basic_Sample
 
 # Si no se indica ruta, usa el directorio actual
-python param_configurator.py
+python src/param_configurator.py
 
 # Limpiar todo el cache al iniciar
-python param_configurator.py --clear-cache
+python src/param_configurator.py --clear-cache
 ```
 
 ## Estructura de Archivos
@@ -28,7 +28,7 @@ Copista-Pipeline/
 ├── src/
 │   ├── param_configurator.py   # GUI para configurar parámetros
 │   ├── batch_processor.py      # Procesamiento en lote
-│   └── sync_pipeline_params.py # Sincronizador pipeline ↔ params
+│   ├── sync_pipeline_params.py # Sincronizador pipeline ↔ params
 │   ├── core/                   # Clases compartidas
 │   │   ├── __init__.py
 │   │   └── pipeline_classes.py
@@ -136,14 +136,14 @@ en el nombre.
 {
   "version": "1.0",
   "description": "Configuración de ejemplo para batch processing",
-  "source_folder": "../__data/raw",
-  "log_file": "../__data/logs/batch_processing.log",
+  "source_folder": "__data/raw",
+  "log_file": "__data/logs/batch_processing.log",
   "targets": [
     {
       "filter_id": "resize",
       "output_name": "resized_image",
       "destination": {
-        "folder": "../__data/processed/resized",
+        "folder": "__data/processed/resized",
         "prefix": "",
         "suffix": "_resized",
         "extension": "png"
@@ -153,7 +153,7 @@ en el nombre.
       "filter_id": "canny_border",
       "output_name": "edge_image",
       "destination": {
-        "folder": "../__data/processed/edges",
+        "folder": "__data/processed/edges",
         "prefix": "edge_",
         "suffix": "",
         "extension": "png"
@@ -392,19 +392,19 @@ El mismo filtro puede usarse múltiples veces en el pipeline con diferentes par�
 
 ```bash
 # Ejecutar configurador
-python bin/param_configurator.py [carpeta_imagenes] --pipeline [pipeline_json_files]
+python src/param_configurator.py [carpeta_imagenes] --pipeline [pipeline_json_files]
 
 # Validar sincronización sin GUI
-python bin/sync_pipeline_params.py --validate-only
+python src/sync_pipeline_params.py --validate-only
 
 # Limpiar parámetros huérfanos automáticamente
-python bin/sync_pipeline_params.py --auto-clean
+python src/sync_pipeline_params.py --auto-clean
 
 # Resolver problemas interactivamente
-python bin/sync_pipeline_params.py
+python src/sync_pipeline_params.py
 
 # Limpiar todo el cache
-python bin/param_configurator.py --clear-cache
+python src/param_configurator.py --clear-cache
 ```
 
 ## Requisitos
