@@ -13,7 +13,7 @@ class ResizeFilter(BaseFilter):
     """Filtro para redimensionar la imagen"""
     
     FILTER_NAME = "Resize"
-    DESCRIPTION = "Redimensiona la imagen a un tamaño específico o por porcentaje"
+    DESCRIPTION = "Redimensiona la imagen a un tamaño específico, por porcentaje, o proporcionalmente según ancho"
     INPUTS = {"input_image": "image"}  # <-- MODIFICADO: ahora acepta input_image
     OUTPUTS = {
         "resized_image": "image",
@@ -23,9 +23,9 @@ class ResizeFilter(BaseFilter):
         "mode": {
             "default": 0,
             "min": 0,
-            "max": 1,
+            "max": 2,
             "step": 1,
-            "description": "Modo: 0=Por porcentaje, 1=Por dimensiones fijas"
+            "description": "Modo: 0=Por porcentaje, 1=Por dimensiones fijas, 2=Proporcional por ancho"
         },
         "scale_percent": {
             "default": 100,
@@ -39,7 +39,7 @@ class ResizeFilter(BaseFilter):
             "min": 100,
             "max": 1920,
             "step": 10,
-            "description": "Ancho en píxeles (solo modo 1)"
+            "description": "Ancho en píxeles (modo 1: fijo, modo 2: proporcional)"
         },
         "height": {
             "default": 480,
@@ -75,15 +75,36 @@ class ResizeFilter(BaseFilter):
         mode = self.params["mode"]
         interp = self.INTERPOLATION_METHODS[self.params["interpolation"]]
         
+        orig_h, orig_w = input_img.shape[:2]
+        
         if mode == 0:
+            # Por porcentaje
             scale = self.params["scale_percent"] / 100.0
-            new_width = int(input_img.shape[1] * scale)  # <-- Usar input_img
-            new_height = int(input_img.shape[0] * scale)  # <-- Usar input_img
-        else:
+            new_width = int(orig_w * scale)
+            new_height = int(orig_h * scale)
+            
+        elif mode == 1:
+            # Dimensiones fijas
             new_width = self.params["width"]
             new_height = self.params["height"]
+            
+        elif mode == 2:
+            # Proporcional por ancho
+            new_width = self.params["width"]
+            # Calcular altura manteniendo aspect ratio
+            aspect_ratio = orig_h / orig_w
+            new_height = int(new_width * aspect_ratio)
+            
+        else:
+            # Modo inválido, sin cambios
+            new_width = orig_w
+            new_height = orig_h
         
-        resized = cv2.resize(input_img, (new_width, new_height), interpolation=interp)  # <-- Usar input_img
+        # Asegurar dimensiones mínimas
+        new_width = max(1, new_width)
+        new_height = max(1, new_height)
+        
+        resized = cv2.resize(input_img, (new_width, new_height), interpolation=interp)
         
         return {
             "resized_image": resized,

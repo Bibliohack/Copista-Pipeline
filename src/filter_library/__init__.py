@@ -28,6 +28,13 @@ from .select_border_lines import SelectBorderLines
 from .calculate_quad_corners import CalculateQuadCorners
 from .detect_page_skew import DetectPageSkew
 from .scale_quad_corners import ScaleQuadCorners
+from .calc_rect_from_quad_corners import CalculateRectFromQuadCorners
+from .filter_lines_by_orientation import FilterLinesByOrientation
+from .calculate_rotation_from_lines import CalculateRotationFromLines 
+from .rotate_image import RotateImage
+from .rotate_quad_corners import RotateQuadCorners
+from .rotate_image_ortho import RotateImageOrtho
+from .crop_image import CropImage
 
 # Lista de todos los filtros disponibles
 __all__ = [
@@ -57,6 +64,13 @@ __all__ = [
     "CalculateQuadCorners",
     "DetectPageSkew",
     "ScaleQuadCorners",
+    "CalculateRectFromQuadCorners",
+    "FilterLinesByOrientation",
+    "CalculateRotationFromLines",
+    "RotateImage",
+    "RotateQuadCorners",
+    "RotateImageOrtho",
+    "CropImage",
 ]
 
 
