@@ -5,8 +5,16 @@ Sistema en Python para aplicar una sucesión configurable de filtros sobre imág
 ## Uso Rápido
 
 ```bash
-# Instalar dependencias
-pip install opencv-python numpy python3-tqdm
+# Instalar dependencias  
+sudo apt install python3-venv tesseract-ocr tesseract-ocr-spa
+# Crear Python Virtual Environment
+cd Copista-Pipeline
+python3 -m venv venv 
+# Activar virtual environment
+source venv/bin/activate 
+# En la terminal aparecerá el (venv) $
+# Instalar dependencias en el virtual environment
+pip install opencv-python numpy tqdm pytesseract pillow hocr-tools reportlab
 
 # Ejecutar el configurador GUI
 python src/param_configurator.py [ruta_a_carpeta_imagenes] --pipeline ./examples/Basic_Sample

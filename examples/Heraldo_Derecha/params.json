@@ -1,15 +1,35 @@
 {
     "version": "1.0",
     "description": "Par\u00e1metros guardados para los filtros del pipeline",
-    "last_modified": "2026-02-02T15:36:33.031658",
+    "last_modified": "2026-02-03T02:12:58.365574",
     "filter_params": {
-        "resize": {
+        "main_resize": {
+            "filter_name": "Resize",
+            "params": {
+                "mode": 2,
+                "scale_percent": 100,
+                "width": 4000,
+                "height": 480,
+                "interpolation": 1
+            }
+        },
+        "resize_for_detect_borders": {
             "filter_name": "Resize",
             "params": {
                 "mode": 2,
                 "scale_percent": 50,
                 "width": 500,
                 "height": 280,
+                "interpolation": 1
+            }
+        },
+        "resize_for_detect_rotation": {
+            "filter_name": "Resize",
+            "params": {
+                "mode": 2,
+                "scale_percent": 100,
+                "width": 1000,
+                "height": 700,
                 "interpolation": 1
             }
         },
@@ -29,18 +49,49 @@
                 "weight_b": 11
             }
         },
+        "histogram_autopeaks": {
+            "filter_name": "DetectHistogramPeaks",
+            "params": {
+                "dark_zone_max": 120,
+                "light_zone_min": 120,
+                "visualization_mode": 2,
+                "histogram_height": 300,
+                "pixel_highlight_mode": 1,
+                "show_counts": 1
+            }
+        },
+        "normalize_from_histogram_peaks": {
+            "filter_name": "NormalizeFromHistogram",
+            "params": {
+                "dark_target": 0,
+                "min_target": 20,
+                "light_target": 180,
+                "use_piecewise": 1,
+                "show_comparison": 1,
+                "show_mapping_info": 1
+            }
+        },
         "blur": {
             "filter_name": "GaussianBlur",
             "params": {
-                "kernel_size": 5,
+                "kernel_size": 1,
                 "sigma": 0
+            }
+        },
+        "denoise": {
+            "filter_name": "DenoiseNLMeans",
+            "params": {
+                "h": 10,
+                "template_window_size": 7,
+                "search_window_size": 21,
+                "color_mode": 0
             }
         },
         "canny_border": {
             "filter_name": "CannyEdge",
             "params": {
                 "threshold1": 50,
-                "threshold2": 150,
+                "threshold2": 185,
                 "aperture_size": 3,
                 "l2_gradient": 0
             }
@@ -51,23 +102,15 @@
                 "method": 1,
                 "rho": 1,
                 "theta_divisor": 180,
-                "threshold": 120,
-                "min_line_length": 50,
-                "max_line_gap": 30
-            }
-        },
-        "show_hough": {
-            "filter_name": "OverlayLines",
-            "params": {
-                "color_preset": 0,
-                "line_thickness": 2,
-                "alpha": 100
+                "threshold": 100,
+                "min_line_length": 40,
+                "max_line_gap": 21
             }
         },
         "angle_classify": {
             "filter_name": "ClassifyLinesByAngle",
             "params": {
-                "angle_tolerance": 15,
+                "angle_tolerance": 1,
                 "horizontal_color_r": 255,
                 "horizontal_color_g": 0,
                 "horizontal_color_b": 0,
@@ -84,16 +127,16 @@
                 "margin_bottom": 10,
                 "margin_left": 30,
                 "margin_right": 30,
-                "cluster_top": 8,
+                "cluster_top": 6,
                 "cluster_bottom": 0,
-                "cluster_left": 6,
-                "cluster_right": 6,
+                "cluster_left": 4,
+                "cluster_right": 3,
                 "line_thickness": 1,
                 "selected_color_r": 5,
                 "selected_color_g": 255,
                 "selected_color_b": 255,
                 "border_color_r": 255,
-                "border_color_g": 165,
+                "border_color_g": 115,
                 "border_color_b": 0
             }
         },
@@ -242,7 +285,7 @@
         "orient_page": {
             "filter_name": "RotateImageOrtho",
             "params": {
-                "rotation": 3,
+                "rotation": 1,
                 "show_info": 0
             }
         }

@@ -1,0 +1,47 @@
+{
+    "name": "Heraldo OCR",
+    "description": "Pipeline para OCR y generacion de PDF - Heraldo",
+    "version": "1.1",
+    "filters": {
+        "resize": {
+            "filter_name": "Resize",
+            "description": "Escalar a DPI óptimo para OCR (300 DPI ideal)",
+            "inputs": {
+                "input_image": "original.image"
+            }
+        },
+        "denoise": {
+            "filter_name": "DenoiseNLMeans",
+            "description": "Eliminar ruido preservando bordes",
+            "inputs": {
+                "input_image": "resize.resized_image"
+            }
+        },
+        "grayscale": {
+            "filter_name": "Grayscale",
+            "inputs": {
+                "input_image": "denoise.denoised_image"
+            }
+        },
+        "threshold": {
+            "filter_name": "ThresholdAdvanced",
+            "description": "Binarización adaptativa - CLAVE para OCR",
+            "inputs": {
+                "input_image": "grayscale.grayscale_image"
+            }
+        },      
+        "ocr": {
+            "filter_name": "TesseractOCR",
+            "inputs": {
+               "input_image": "threshold.threshold_image"
+            }
+        },
+        "pdf": {
+            "filter_name": "HOCRtoPDF",
+            "inputs": {
+                "input_image": "resize.resized_image",
+                "hocr_data": "ocr.hocr_data"
+            }
+        }
+    }
+}

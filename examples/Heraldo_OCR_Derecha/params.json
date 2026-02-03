@@ -1,0 +1,65 @@
+{
+    "version": "1.0",
+    "description": "Par\u00e1metros guardados para los filtros del pipeline",
+    "last_modified": "2026-02-03T03:39:26.297419",
+    "filter_params": {
+        "resize": {
+            "filter_name": "Resize",
+            "params": {
+                "mode": 2,
+                "scale_percent": 100,
+                "width": 1590,
+                "height": 480,
+                "interpolation": 1
+            }
+        },
+        "denoise": {
+            "filter_name": "DenoiseNLMeans",
+            "params": {
+                "h": 10,
+                "template_window_size": 7,
+                "search_window_size": 21,
+                "color_mode": 0
+            }
+        },
+        "grayscale": {
+            "filter_name": "Grayscale",
+            "params": {
+                "method": 0,
+                "weight_r": 30,
+                "weight_g": 59,
+                "weight_b": 11
+            }
+        },
+        "threshold": {
+            "filter_name": "ThresholdAdvanced",
+            "params": {
+                "method": 7,
+                "threshold": 110,
+                "max_value": 255,
+                "block_size": 9,
+                "c_value": 8
+            }
+        },
+        "ocr": {
+            "filter_name": "TesseractOCR",
+            "params": {
+                "language": 0,
+                "psm": 3,
+                "oem": 3,
+                "dpi": 150,
+                "visualize_boxes": 1,
+                "min_confidence": 0
+            }
+        },
+        "pdf": {
+            "filter_name": "HOCRtoPDF",
+            "params": {
+                "dpi": 150,
+                "image_format": 1,
+                "jpeg_quality": 72,
+                "text_mode": 3
+            }
+        }
+    }
+}

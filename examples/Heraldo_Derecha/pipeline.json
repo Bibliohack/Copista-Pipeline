@@ -3,17 +3,35 @@
     "description": "Pipeline de detección de bordes de página - Heraldo",
     "version": "1.1",
     "filters": {
-        "resize": {
+        "main_resize": {
+            "filter_name": "Resize",
+            "description": "Redimensionar imagen resolucion aceptable de salida",
+            "inputs": {
+                "input_image": "original.image"
+            },
+            "comment": ""
+        },
+        "resize_for_detect_borders": {
             "filter_name": "Resize",
             "description": "Redimensionar imagen inicial",
-            "inputs": {},
+            "inputs": {
+                "input_image": "main_resize.resized_image"
+            },
             "comment": "El filtro 0 no tiene inputs de otros filtros, trabaja con la imagen original"
+        },
+        "resize_for_detect_rotation": {
+            "filter_name": "Resize",
+            "description": "Redimensionar imagen inicial",
+            "inputs": {
+                "input_image": "main_resize.resized_image"
+            },
+            "comment": "escala a un tamaño optimo para que hough detecte lineas de texto"
         },
         "contrast": {
             "filter_name": "BrightnessContrast",
             "description": "Ajustar brillo y contraste",
             "inputs": {
-                "input_image": "resize.resized_image"
+                "input_image": "resize_for_detect_borders.resized_image"
             },
             "comment": "Toma la imagen redimensionada del filtro 0"
         },
@@ -24,18 +42,40 @@
                 "input_image": "contrast.adjusted_image"
             }
         },
+        "histogram_autopeaks": {
+            "filter_name": "DetectHistogramPeaks",
+            "description": "auto detectar los picos claros/oscuros",
+            "inputs": {
+                "input_image": "contrast.adjusted_image"
+            }
+        },
+        "normalize_from_histogram_peaks": {
+            "filter_name": "NormalizeFromHistogram",
+            "description": "normalizar imagen segun picos claros/oscuros",
+            "inputs": {
+                "input_image": "contrast.adjusted_image",
+                "histogram_data": "histogram_autopeaks.histogram_data"
+            }
+        },
         "blur": {
             "filter_name": "GaussianBlur",
             "description": "Aplicar desenfoque para reducir ruido",
             "inputs": {
-                "input_image": "gray.grayscale_image"
+                "input_image": "normalize_from_histogram_peaks.normalized_image"
+            }
+        },
+        "denoise": {
+            "filter_name": "DenoiseNLMeans",
+            "description": "Eliminar ruido preservando bordes",
+            "inputs": {
+                "input_image": "blur.blurred_image"
             }
         },
         "canny_border": {
             "filter_name": "CannyEdge",
             "description": "Detectar bordes",
             "inputs": {
-                "input_image": "blur.blurred_image"
+                "input_image": "denoise.denoised_image"
             }
         },
         "hough_border": {
@@ -43,25 +83,16 @@
             "description": "Detectar líneas",
             "inputs": {
                 "edge_image": "canny_border.edge_image",
-                "base_image": "resize.resized_image"
+                "base_image": "denoise.denoised_image"
             },
             "comment": "Usar method=1 (probabilístico) para obtener formato x1,y1,x2,y2"
-        },
-        "show_hough": {
-            "filter_name": "OverlayLines",
-            "description": "Visualizar líneas sobre imagen original",
-            "inputs": {
-                "base_image": "resize.resized_image",
-                "lines_data": "hough_border.lines_data"
-            },
-            "comment": "Este filtro combina datos de múltiples filtros anteriores"
         },
         "angle_classify": {
             "filter_name": "ClassifyLinesByAngle",
             "description": "Clasificar líneas en horizontales, verticales y otras",
             "inputs": {
                 "lines_data": "hough_border.lines_data",
-                "base_image": "resize.resized_image"
+                "base_image": "contrast.adjusted_image"
             },
             "comment": "Separa las líneas según su ángulo respecto a horizontal/vertical"
         },
@@ -69,7 +100,7 @@
             "filter_name": "SelectBorderLines",
             "description": "Seleccionar las 4 líneas extremas de borde",
             "inputs": {
-            	"base_image": "resize.resized_image",
+                	"base_image": "contrast.adjusted_image",
                 "horizontal_lines": "angle_classify.horizontal_lines",
                 "vertical_lines": "angle_classify.vertical_lines"
             },
@@ -79,7 +110,7 @@
             "filter_name": "CalculateQuadCorners",
             "description": "Calcular las 4 esquinas del polígono",
             "inputs": {
-            	"base_image": "resize.resized_image",
+            	    "base_image": "contrast.adjusted_image",
                 "selected_lines": "set_borders.selected_lines",
                 "selection_metadata": "set_borders.selection_metadata"
             },
@@ -90,20 +121,20 @@
             "inputs": {
                 "corners": "quad_corners.corners",
                 "corners_metadata": "quad_corners.corners_metadata",
-                "target_image": "original.image"
+                "target_image": "main_resize.resized_image"
             }
         },
         "canny_for_calc_rotation": {
             "filter_name": "CannyEdge",
             "description": "Detectar bordes",
-            "inputs": { "input_image": "original.image" }
+            "inputs": { "input_image": "resize_for_detect_rotation.resized_image" }
         },
         "hough_for_calc_rotation": {
             "filter_name": "HoughLines",
             "description": "Detectar líneas",
             "inputs": {
                 "edge_image": "canny_for_calc_rotation.edge_image",
-                	"base_image": "original.image"
+                	"base_image": "resize_for_detect_rotation.resized_image"
             },
             "comment": "Usar method=1 (probabilístico) para obtener formato x1,y1,x2,y2"
         },
@@ -111,7 +142,7 @@
             "filter_name": "FilterLinesByOrientation",
             "inputs": {
                 "lines_data": "hough_for_calc_rotation.lines_data",
-                "base_image": "original.image"
+                "base_image": "resize_for_detect_rotation.resized_image"
             }
         },
 	    "calc_rotation": {
@@ -120,14 +151,14 @@
                 "horizontal_lines": "get_hv_lines_for_calc_rotation.horizontal_lines",
                 "vertical_lines": "get_hv_lines_for_calc_rotation.vertical_lines",
                 "lines_metadata": "get_hv_lines_for_calc_rotation.lines_metadata",
-                "base_image": "original.image"
+                "base_image": "resize_for_detect_rotation.resized_image"
             }
         },
         "rotate_correct": {
             "filter_name": "RotateImage",
             "description": "Corregir rotación automáticamente",
             "inputs": {
-                "input_image": "original.image",
+                "input_image": "main_resize.resized_image",
                 "rotation_angle": "calc_rotation.rotation_angle"
             }
         },

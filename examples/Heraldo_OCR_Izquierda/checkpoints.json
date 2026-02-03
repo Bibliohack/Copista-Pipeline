@@ -1,0 +1,7 @@
+{
+    "checkpoints": [
+        "main_resize",
+        "resize_for_detect_rotation"
+    ],
+    "last_modified": "2026-02-03T02:33:19.788913"
+}

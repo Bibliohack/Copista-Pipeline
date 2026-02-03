@@ -1,0 +1,18 @@
+{
+  "version": "1.0",
+  "description": "Configuración de ejemplo para batch processing",
+  "source_folder": "./__data/heraldo_raw/Izquierda/",
+  "log_file": "./__data/logs/batch_processing.log",
+  "targets": [
+    {
+      "filter_id": "orient_page",
+      "output_name": "rotated_image",
+      "destination": {
+        "folder": "./__data/heraldo_processed/Izquierda",
+        "prefix": "",
+        "suffix": "",
+        "extension": "jpg"
+      }
+    }
+  ]
+}

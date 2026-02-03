@@ -1,0 +1,293 @@
+{
+    "version": "1.0",
+    "description": "Par\u00e1metros guardados para los filtros del pipeline",
+    "last_modified": "2026-02-03T01:31:27.975806",
+    "filter_params": {
+        "main_resize": {
+            "filter_name": "Resize",
+            "params": {
+                "mode": 2,
+                "scale_percent": 100,
+                "width": 4000,
+                "height": 480,
+                "interpolation": 1
+            }
+        },
+        "resize_for_detect_borders": {
+            "filter_name": "Resize",
+            "params": {
+                "mode": 2,
+                "scale_percent": 50,
+                "width": 500,
+                "height": 280,
+                "interpolation": 1
+            }
+        },
+        "resize_for_detect_rotation": {
+            "filter_name": "Resize",
+            "params": {
+                "mode": 2,
+                "scale_percent": 100,
+                "width": 1000,
+                "height": 700,
+                "interpolation": 1
+            }
+        },
+        "contrast": {
+            "filter_name": "BrightnessContrast",
+            "params": {
+                "brightness": 0,
+                "contrast": 100
+            }
+        },
+        "gray": {
+            "filter_name": "Grayscale",
+            "params": {
+                "method": 0,
+                "weight_r": 30,
+                "weight_g": 59,
+                "weight_b": 11
+            }
+        },
+        "histogram_autopeaks": {
+            "filter_name": "DetectHistogramPeaks",
+            "params": {
+                "dark_zone_max": 120,
+                "light_zone_min": 120,
+                "visualization_mode": 2,
+                "histogram_height": 300,
+                "pixel_highlight_mode": 1,
+                "show_counts": 1
+            }
+        },
+        "normalize_from_histogram_peaks": {
+            "filter_name": "NormalizeFromHistogram",
+            "params": {
+                "dark_target": 0,
+                "min_target": 10,
+                "light_target": 240,
+                "use_piecewise": 1,
+                "show_comparison": 1,
+                "show_mapping_info": 1
+            }
+        },
+        "blur": {
+            "filter_name": "GaussianBlur",
+            "params": {
+                "kernel_size": 5,
+                "sigma": 0
+            }
+        },
+        "denoise": {
+            "filter_name": "DenoiseNLMeans",
+            "params": {
+                "h": 10,
+                "template_window_size": 7,
+                "search_window_size": 21,
+                "color_mode": 0
+            }
+        },
+        "canny_border": {
+            "filter_name": "CannyEdge",
+            "params": {
+                "threshold1": 50,
+                "threshold2": 185,
+                "aperture_size": 3,
+                "l2_gradient": 0
+            }
+        },
+        "hough_border": {
+            "filter_name": "HoughLines",
+            "params": {
+                "method": 1,
+                "rho": 1,
+                "theta_divisor": 180,
+                "threshold": 100,
+                "min_line_length": 40,
+                "max_line_gap": 21
+            }
+        },
+        "angle_classify": {
+            "filter_name": "ClassifyLinesByAngle",
+            "params": {
+                "angle_tolerance": 2,
+                "horizontal_color_r": 255,
+                "horizontal_color_g": 0,
+                "horizontal_color_b": 0,
+                "vertical_color_r": 0,
+                "vertical_color_g": 0,
+                "vertical_color_b": 255,
+                "line_thickness": 2
+            }
+        },
+        "set_borders": {
+            "filter_name": "SelectBorderLines",
+            "params": {
+                "margin_top": 20,
+                "margin_bottom": 10,
+                "margin_left": 30,
+                "margin_right": 30,
+                "cluster_top": 6,
+                "cluster_bottom": 0,
+                "cluster_left": 4,
+                "cluster_right": 3,
+                "line_thickness": 1,
+                "selected_color_r": 5,
+                "selected_color_g": 255,
+                "selected_color_b": 255,
+                "border_color_r": 255,
+                "border_color_g": 115,
+                "border_color_b": 0
+            }
+        },
+        "quad_corners": {
+            "filter_name": "CalculateQuadCorners",
+            "params": {
+                "corner_radius": 10,
+                "corner_color_r": 255,
+                "corner_color_g": 0,
+                "corner_color_b": 255,
+                "polygon_color_r": 0,
+                "polygon_color_g": 255,
+                "polygon_color_b": 255,
+                "polygon_thickness": 3,
+                "draw_labels": 1
+            }
+        },
+        "scale_to_original": {
+            "filter_name": "ScaleQuadCorners",
+            "params": {
+                "scale_mode": 1,
+                "round_coords": 1,
+                "clamp_to_bounds": 0,
+                "visualization_size": 800,
+                "corner_radius": 8,
+                "show_info": 1
+            }
+        },
+        "canny_for_calc_rotation": {
+            "filter_name": "CannyEdge",
+            "params": {
+                "threshold1": 45,
+                "threshold2": 215,
+                "aperture_size": 3,
+                "l2_gradient": 0
+            }
+        },
+        "hough_for_calc_rotation": {
+            "filter_name": "HoughLines",
+            "params": {
+                "method": 1,
+                "rho": 1,
+                "theta_divisor": 190,
+                "threshold": 90,
+                "min_line_length": 100,
+                "max_line_gap": 11
+            }
+        },
+        "get_hv_lines_for_calc_rotation": {
+            "filter_name": "FilterLinesByOrientation",
+            "params": {
+                "h_v_tolerance": 3,
+                "horizontal_color_r": 255,
+                "horizontal_color_g": 0,
+                "horizontal_color_b": 0,
+                "vertical_color_r": 0,
+                "vertical_color_g": 255,
+                "vertical_color_b": 255,
+                "oblique_color_r": 128,
+                "oblique_color_g": 128,
+                "oblique_color_b": 128,
+                "line_thickness": 1,
+                "show_oblique": 1,
+                "show_info": 1
+            }
+        },
+        "calc_rotation": {
+            "filter_name": "CalculateRotationFromLines",
+            "params": {
+                "use_mode": 1,
+                "angle_bin_size": 8,
+                "min_cluster_size": 5,
+                "perpendicularity_tolerance": 5,
+                "grid_spacing": 30,
+                "grid_thickness": 1,
+                "grid_color_r": 0,
+                "grid_color_g": 255,
+                "grid_color_b": 0,
+                "grid_alpha": 65,
+                "preview_mode": 0
+            }
+        },
+        "rotate_correct": {
+            "filter_name": "RotateImage",
+            "params": {
+                "angle": 0,
+                "use_input_angle": 1,
+                "interpolation": 1,
+                "background_r": 255,
+                "background_g": 255,
+                "background_b": 255,
+                "invert_angle": 1,
+                "show_info": 1,
+                "show_center": 1
+            }
+        },
+        "rotate_corners": {
+            "filter_name": "RotateQuadCorners",
+            "params": {
+                "angle": 0,
+                "use_input_angle": 1,
+                "invert_angle": 0,
+                "corner_radius": 8,
+                "original_color_r": 0,
+                "original_color_g": 255,
+                "original_color_b": 255,
+                "rotated_color_r": 255,
+                "rotated_color_g": 0,
+                "rotated_color_b": 255,
+                "line_thickness": 2,
+                "show_original": 1,
+                "show_info": 1
+            }
+        },
+        "get_crop_points": {
+            "filter_name": "CalculateRectFromQuadCorners",
+            "params": {
+                "inset": 0,
+                "rect_color_r": 255,
+                "rect_color_g": 255,
+                "rect_color_b": 0,
+                "polygon_color_r": 110,
+                "polygon_color_g": 0,
+                "polygon_color_b": 255,
+                "line_thickness": 1,
+                "show_info": 1
+            }
+        },
+        "crop": {
+            "filter_name": "CropImage",
+            "params": {
+                "use_input_rect": 1,
+                "x1": 0,
+                "y1": 0,
+                "x2": 100,
+                "y2": 100,
+                "clamp_to_image": 1,
+                "min_size": 10,
+                "show_rect_on_original": 0,
+                "rect_color_r": 0,
+                "rect_color_g": 255,
+                "rect_color_b": 0,
+                "rect_thickness": 3
+            }
+        },
+        "orient_page": {
+            "filter_name": "RotateImageOrtho",
+            "params": {
+                "rotation": 3,
+                "show_info": 0
+            }
+        }
+    }
+}

@@ -1,0 +1,28 @@
+{
+  "version": "1.0",
+  "description": "Configuración de ejemplo para batch processing",
+  "source_folder": "./__data/heraldo_processed/Derecha/",
+  "log_file": "./__data/logs/batch_processing.log",
+  "targets": [
+    {
+      "filter_id": "ocr",
+      "output_name": "hocr_data",
+      "destination": {
+        "folder": "./__data/heraldo_PDFs/Derecha",
+        "prefix": "",
+        "suffix": "",
+        "extension": "hocr"
+      }
+    },
+    {
+      "filter_id": "pdf",
+      "output_name": "pdf_data",
+      "destination": {
+        "folder": "./__data/heraldo_PDFs/Derecha",
+        "prefix": "",
+        "suffix": "",
+        "extension": "pdf"
+      }
+    }
+  ]
+}

@@ -1,0 +1,200 @@
+{
+    "name": "Heraldo - Detección de Bordes y Líneas",
+    "description": "Pipeline de detección de bordes de página - Heraldo",
+    "version": "1.1",
+    "filters": {
+        "main_resize": {
+            "filter_name": "Resize",
+            "description": "Redimensionar imagen resolucion aceptable de salida",
+            "inputs": {
+                "input_image": "original.image"
+            },
+            "comment": ""
+        },
+        "resize_for_detect_borders": {
+            "filter_name": "Resize",
+            "description": "Redimensionar imagen inicial",
+            "inputs": {
+                "input_image": "main_resize.resized_image"
+            },
+            "comment": "El filtro 0 no tiene inputs de otros filtros, trabaja con la imagen original"
+        },
+        "resize_for_detect_rotation": {
+            "filter_name": "Resize",
+            "description": "Redimensionar imagen inicial",
+            "inputs": {
+                "input_image": "main_resize.resized_image"
+            },
+            "comment": "escala a un tamaño optimo para que hough detecte lineas de texto"
+        },
+        "contrast": {
+            "filter_name": "BrightnessContrast",
+            "description": "Ajustar brillo y contraste",
+            "inputs": {
+                "input_image": "resize_for_detect_borders.resized_image"
+            },
+            "comment": "Toma la imagen redimensionada del filtro 0"
+        },
+        "gray": {
+            "filter_name": "Grayscale",
+            "description": "Convertir a escala de grises",
+            "inputs": {
+                "input_image": "contrast.adjusted_image"
+            }
+        },
+        "histogram_autopeaks": {
+            "filter_name": "DetectHistogramPeaks",
+            "description": "auto detectar los picos claros/oscuros",
+            "inputs": {
+                "input_image": "contrast.adjusted_image"
+            }
+        },
+        "normalize_from_histogram_peaks": {
+            "filter_name": "NormalizeFromHistogram",
+            "description": "normalizar imagen segun picos claros/oscuros",
+            "inputs": {
+                "input_image": "contrast.adjusted_image",
+                "histogram_data": "histogram_autopeaks.histogram_data"
+            }
+        },
+        "blur": {
+            "filter_name": "GaussianBlur",
+            "description": "Aplicar desenfoque para reducir ruido",
+            "inputs": {
+                "input_image": "normalize_from_histogram_peaks.normalized_image"
+            }
+        },
+        "denoise": {
+            "filter_name": "DenoiseNLMeans",
+            "description": "Eliminar ruido preservando bordes",
+            "inputs": {
+                "input_image": "blur.blurred_image"
+            }
+        },
+        "canny_border": {
+            "filter_name": "CannyEdge",
+            "description": "Detectar bordes",
+            "inputs": {
+                "input_image": "denoise.denoised_image"
+            }
+        },
+        "hough_border": {
+            "filter_name": "HoughLines",
+            "description": "Detectar líneas",
+            "inputs": {
+                "edge_image": "canny_border.edge_image",
+                "base_image": "denoise.denoised_image"
+            },
+            "comment": "Usar method=1 (probabilístico) para obtener formato x1,y1,x2,y2"
+        },
+        "angle_classify": {
+            "filter_name": "ClassifyLinesByAngle",
+            "description": "Clasificar líneas en horizontales, verticales y otras",
+            "inputs": {
+                "lines_data": "hough_border.lines_data",
+                "base_image": "contrast.adjusted_image"
+            },
+            "comment": "Separa las líneas según su ángulo respecto a horizontal/vertical"
+        },
+        "set_borders": {
+            "filter_name": "SelectBorderLines",
+            "description": "Seleccionar las 4 líneas extremas de borde",
+            "inputs": {
+                	"base_image": "contrast.adjusted_image",
+                "horizontal_lines": "angle_classify.horizontal_lines",
+                "vertical_lines": "angle_classify.vertical_lines"
+            },
+            "comment": "Aplica lógica de cluster y margen para seleccionar top/bottom/left/right"
+        },
+        "quad_corners": {
+            "filter_name": "CalculateQuadCorners",
+            "description": "Calcular las 4 esquinas del polígono",
+            "inputs": {
+            	    "base_image": "contrast.adjusted_image",
+                "selected_lines": "set_borders.selected_lines",
+                "selection_metadata": "set_borders.selection_metadata"
+            },
+            "comment": "Intersecta las líneas seleccionadas para obtener los 4 vértices"
+        },
+        "scale_to_original": {
+            "filter_name": "ScaleQuadCorners",
+            "inputs": {
+                "corners": "quad_corners.corners",
+                "corners_metadata": "quad_corners.corners_metadata",
+                "target_image": "main_resize.resized_image"
+            }
+        },
+        "canny_for_calc_rotation": {
+            "filter_name": "CannyEdge",
+            "description": "Detectar bordes",
+            "inputs": { "input_image": "resize_for_detect_rotation.resized_image" }
+        },
+        "hough_for_calc_rotation": {
+            "filter_name": "HoughLines",
+            "description": "Detectar líneas",
+            "inputs": {
+                "edge_image": "canny_for_calc_rotation.edge_image",
+                	"base_image": "resize_for_detect_rotation.resized_image"
+            },
+            "comment": "Usar method=1 (probabilístico) para obtener formato x1,y1,x2,y2"
+        },
+        "get_hv_lines_for_calc_rotation": {
+            "filter_name": "FilterLinesByOrientation",
+            "inputs": {
+                "lines_data": "hough_for_calc_rotation.lines_data",
+                "base_image": "resize_for_detect_rotation.resized_image"
+            }
+        },
+	    "calc_rotation": {
+	        "filter_name": "CalculateRotationFromLines",
+            "inputs": {
+                "horizontal_lines": "get_hv_lines_for_calc_rotation.horizontal_lines",
+                "vertical_lines": "get_hv_lines_for_calc_rotation.vertical_lines",
+                "lines_metadata": "get_hv_lines_for_calc_rotation.lines_metadata",
+                "base_image": "resize_for_detect_rotation.resized_image"
+            }
+        },
+        "rotate_correct": {
+            "filter_name": "RotateImage",
+            "description": "Corregir rotación automáticamente",
+            "inputs": {
+                "input_image": "main_resize.resized_image",
+                "rotation_angle": "calc_rotation.rotation_angle"
+            }
+        },
+        "rotate_corners": {
+            "filter_name": "RotateQuadCorners",
+            "description": "Rotar las coordenadas de corners para que coincidan con la imagen rotada",
+            "inputs": {
+                "corners": "scale_to_original.scaled_corners",
+                "corners_metadata": "scale_to_original.scaled_metadata",
+                "rotation_angle": "calc_rotation.rotation_angle",
+                "base_image": "rotate_correct.rotated_image"
+            }
+        },
+        "get_crop_points": {
+            "filter_name": "CalculateRectFromQuadCorners",
+            "inputs": {
+                "corners": "rotate_corners.rotated_corners",
+                "corners_metadata": "rotate_corners.rotated_metadata",
+                "base_image": "rotate_correct.rotated_image"
+            }
+        },
+        "crop": {
+            "filter_name": "CropImage",
+            "description": "Recortar según rectángulo calculado",
+            "inputs": {
+                "input_image": "rotate_correct.rotated_image",
+                "crop_rect": "get_crop_points.crop_rect",
+                "crop_metadata": "get_crop_points.crop_metadata"
+            }
+        },
+        "orient_page": {
+            "filter_name": "RotateImageOrtho",
+            "description": "Rotar página escaneada a orientación correcta",
+            "inputs": {
+                "input_image": "crop.cropped_image"
+            }
+        }
+    }
+}
