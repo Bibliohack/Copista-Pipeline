@@ -251,7 +251,7 @@ class OutputSaver:
         Args:
             data: Datos a guardar
             output_path: Path completo del archivo destino
-            output_type: Tipo de output (image, lines, metadata, etc.)
+            output_type: Tipo de output (image, pdf, lines, metadata, etc.)
         
         Returns:
             True si se guardó exitosamente
@@ -259,6 +259,8 @@ class OutputSaver:
         try:
             if output_type == "image":
                 return OutputSaver._save_image(data, output_path)
+            elif output_type == "pdf":
+                return OutputSaver._save_pdf(data, output_path)
             elif output_type == "float":
                 return OutputSaver._save_float(data, output_path)
             else:
@@ -281,6 +283,24 @@ class OutputSaver:
         if not success:
             print(f"  ❌ cv2.imwrite falló: {path}")
             return False
+        
+        return True
+    
+    @staticmethod
+    def _save_pdf(data: bytes, path: Path) -> bool:
+        """Guarda datos PDF (bytes)"""
+        if data is None:
+            print(f"  ⚠️  PDF data None, no se guardó: {path}")
+            return False
+        
+        if not isinstance(data, bytes):
+            print(f"  ⚠️  PDF data no es bytes: {type(data)}")
+            return False
+        
+        path.parent.mkdir(parents=True, exist_ok=True)
+        
+        with open(path, 'wb') as f:
+            f.write(data)
         
         return True
     

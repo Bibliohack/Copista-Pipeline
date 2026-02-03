@@ -35,14 +35,14 @@ class ThresholdAdvanced(BaseFilter):
             "default": 127,
             "min": 0,
             "max": 255,
-            "step": 1,
+            "step": 10,
             "description": "Valor de umbral (ignorado en OTSU y Adaptive)."
         },
         "max_value": {
             "default": 255,
             "min": 0,
             "max": 255,
-            "step": 1,
+            "step": 5,
             "description": "Valor máximo para píxeles sobre umbral."
         },
         "block_size": {

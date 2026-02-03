@@ -37,15 +37,15 @@ class ResizeFilter(BaseFilter):
         "width": {
             "default": 640,
             "min": 100,
-            "max": 1920,
-            "step": 10,
+            "max": 6000,
+            "step": 50,
             "description": "Ancho en píxeles (modo 1: fijo, modo 2: proporcional)"
         },
         "height": {
             "default": 480,
             "min": 100,
-            "max": 1080,
-            "step": 10,
+            "max": 4000,
+            "step": 50,
             "description": "Alto en píxeles (solo modo 1)"
         },
         "interpolation": {

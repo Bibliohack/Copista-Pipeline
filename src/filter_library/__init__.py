@@ -35,6 +35,12 @@ from .rotate_image import RotateImage
 from .rotate_quad_corners import RotateQuadCorners
 from .rotate_image_ortho import RotateImageOrtho
 from .crop_image import CropImage
+from .normalize_from_histogram import NormalizeFromHistogram
+from .detect_histogram_peaks import DetectHistogramPeaks
+from .tesseract_ocr import TesseractOCR
+from .hocr_to_pdf import HOCRtoPDF
+from .scale_hocr import ScaleHOCR
+from .high_pass_filter import HighPassFilter
 
 # Lista de todos los filtros disponibles
 __all__ = [
@@ -71,6 +77,12 @@ __all__ = [
     "RotateQuadCorners",
     "RotateImageOrtho",
     "CropImage",
+    "NormalizeFromHistogram",
+    "DetectHistogramPeaks",
+    "TesseractOCR",
+    "HOCRtoPDF",
+    "ScaleHOCR",
+    "HighPassFilter",
 ]
 
 
