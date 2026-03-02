@@ -215,6 +215,48 @@ Experimento              N  Fallidos    Media  Mediana     Std     Mín     Máx
 
 ---
 
+## Arquitectura de agentes IA
+
+El proceso de experimentación se organiza en cuatro agentes especializados, cada uno con un contexto acotado y responsabilidades claras.
+
+### Agente Orquestador
+Decide la estrategia de alto nivel. Interpreta resultados cualitativamente ("el IoU bajo está concentrado en imágenes con papeles que sobresalen, no es un problema de parámetros sino de lógica"), decide qué familia de técnicas probar, cuándo abandonar una línea y cuándo combinar estrategias. Crea nuevos filtros cuando la estrategia lo requiere. Es el único que se comunica con el humano para validar decisiones importantes.
+
+### Agente Experimentador
+Recibe del Orquestador una consigna acotada ("explorá el espacio de parámetros de `hough_border` y `set_borders`") y ejecuta el loop autónomamente:
+
+```
+modificar params.json → correr batch_processor → evaluar iou_metrics → decidir próximo paso
+```
+
+Conoce los rangos válidos de cada parámetro y una heurística de búsqueda. Devuelve al Orquestador una tabla de resultados con observaciones ("el parámetro `cluster_left` tiene el mayor impacto en IoU").
+
+### Agente Analista
+Recibe los `.det.json` y `.gt.json` de los casos con IoU bajo y clasifica los fallos: ¿es una esquina concreta que siempre falla? ¿un tipo de imagen específico? ¿el borde inferior en particular? Produce un diagnóstico accionable ("el 80% de los fallos son en `bottom_left`, casi siempre de tipo `image_corner`") que el Orquestador usa para decidir qué atacar. Sin este agente los números de IoU son opacos; con él se convierten en dirección concreta.
+
+### Agente Implementador
+Conoce en profundidad el código del sistema: arquitectura de filtros (BaseFilter, FILTER_REGISTRY, convenciones de metadata), filtros existentes como referencia de patrones, pipeline.json, batch_processor y herramientas de evaluación. Recibe del Orquestador una especificación técnica ("implementar projection profile según sección 3.2 del paper Shamqoli") y devuelve el filtro integrado y listo para experimentar. Sus fuentes de conocimiento son `FILTER_DEVELOPMENT_GUIDE.md`, `FILTER_REFERENCE.md` y `METADATA_CONVENTION.md`.
+
+### Flujo típico
+
+```
+Orquestador
+  │
+  ├─► Analista ──────► diagnóstico de fallos
+  │                         │
+  │         ◄───────────────┘
+  │
+  ├─► Implementador ──► nuevo filtro o modificación al sistema
+  │
+  └─► Experimentador ─► tabla de resultados por experimento
+            │
+            ◄─── reporta al Orquestador para siguiente decisión
+```
+
+> **Nota:** el Agente Implementador necesita bastante contexto de código para operar bien. En la práctica puede dividirse en un implementador liviano (recibe spec + docs técnicos, escribe el código) validado por el Orquestador (que verifica coherencia con el proyecto).
+
+---
+
 ## Estrategias de mejora planificadas
 
 ### Estrategia 1 (implementada): Baseline Hough
