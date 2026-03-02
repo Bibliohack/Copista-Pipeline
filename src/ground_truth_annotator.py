@@ -4,10 +4,15 @@ Herramienta de anotación de ground truth para bordes de página.
 
 Permite recorrer una carpeta de imágenes y marcar manualmente el polígono
 (4 esquinas en sentido horario desde sup-izq) que delimita el borde físico
-del papel. Guarda las coordenadas en archivos .gt.json junto a cada imagen.
+del papel. Guarda las coordenadas como archivos .gt.json en la carpeta de
+salida indicada (o junto a las imágenes si no se especifica).
 
 Uso:
-    python ground_truth_annotator.py <carpeta_de_imagenes>
+    python ground_truth_annotator.py <carpeta_de_imagenes> [--output <carpeta_gt>]
+
+Ejemplos:
+    python ground_truth_annotator.py __data/heraldo_raw_100/Derecha/
+    python ground_truth_annotator.py __data/heraldo_raw_100/Derecha/ --output __data/ground_truth/Derecha/
 
 Controles:
     Click izquierdo    — colocar punto (hasta 4, en orden)
@@ -40,11 +45,13 @@ ZOOM_MAX = 16.0   # relativo al encaje inicial
 
 
 class AnnotationTool:
-    def __init__(self, root, folder_path):
+    def __init__(self, root, folder_path, output_path=None):
         self.root = root
         self.root.title("Anotador Ground Truth — Bordes de Página")
 
         self.folder = Path(folder_path)
+        self.gt_folder = Path(output_path) if output_path else self.folder
+        self.gt_folder.mkdir(parents=True, exist_ok=True)
         self.images = sorted(
             p for p in self.folder.iterdir()
             if p.suffix.lower() in IMAGE_EXTENSIONS
@@ -154,7 +161,7 @@ class AnnotationTool:
         self.orig_width, self.orig_height = img.size
         self._orig_image = img
 
-        gt_path = path.with_name(path.stem + '.gt.json')
+        gt_path = self.gt_folder / (path.stem + '.gt.json')
         if gt_path.exists():
             with open(gt_path) as f:
                 data = json.load(f)
@@ -276,7 +283,7 @@ class AnnotationTool:
 
     def _update_status(self):
         path = self.images[self.current_index]
-        gt_path = path.with_name(path.stem + '.gt.json')
+        gt_path = self.gt_folder / (path.stem + '.gt.json')
         mark = "  ✓" if gt_path.exists() else ""
         zoom_pct = round(self.S / self.base_S * 100)
         self.lbl_status.config(
@@ -406,7 +413,7 @@ class AnnotationTool:
             return
 
         path = self.images[self.current_index]
-        gt_path = path.with_name(path.stem + '.gt.json')
+        gt_path = self.gt_folder / (path.stem + '.gt.json')
 
         data = {
             "image_file":   path.name,
@@ -434,19 +441,25 @@ class AnnotationTool:
 # ── Punto de entrada ──────────────────────────────────────────────────────────
 
 def main():
-    if len(sys.argv) < 2:
-        print("Uso: python ground_truth_annotator.py <carpeta_de_imagenes>")
-        sys.exit(1)
+    import argparse
+    parser = argparse.ArgumentParser(
+        description="Anotador manual de bordes de página (ground truth)."
+    )
+    parser.add_argument("folder", help="Carpeta con las imágenes a anotar")
+    parser.add_argument(
+        "--output", "-o", default=None,
+        help="Carpeta donde guardar los .gt.json (por defecto: misma carpeta que las imágenes)"
+    )
+    args = parser.parse_args()
 
-    folder = sys.argv[1]
-    if not os.path.isdir(folder):
-        print(f"Error: '{folder}' no es una carpeta válida.")
+    if not os.path.isdir(args.folder):
+        print(f"Error: '{args.folder}' no es una carpeta válida.")
         sys.exit(1)
 
     root = tk.Tk()
     root.geometry("1280x860")
     root.minsize(640, 480)
-    AnnotationTool(root, folder)
+    AnnotationTool(root, args.folder, args.output)
     root.mainloop()
 
 
