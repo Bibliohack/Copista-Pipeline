@@ -41,6 +41,7 @@ from .tesseract_ocr import TesseractOCR
 from .hocr_to_pdf import HOCRtoPDF
 from .scale_hocr import ScaleHOCR
 from .high_pass_filter import HighPassFilter
+from .polygon_to_gt_format import PolygonToGTFormat
 
 # Lista de todos los filtros disponibles
 __all__ = [
@@ -83,6 +84,7 @@ __all__ = [
     "HOCRtoPDF",
     "ScaleHOCR",
     "HighPassFilter",
+    "PolygonToGTFormat",
 ]
 
 

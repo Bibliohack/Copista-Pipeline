@@ -1,0 +1,122 @@
+{
+    "name": "Heraldo - Detección de polígono para evaluación",
+    "description": "Pipeline simplificado para detectar el polígono de borde de página y exportarlo en formato ground truth. Sin corrección de rotación. Usado para medir IoU contra anotaciones manuales.",
+    "version": "1.0",
+    "filters": {
+        "main_resize": {
+            "filter_name": "Resize",
+            "description": "Redimensionar imagen a resolución de trabajo",
+            "inputs": {
+                "input_image": "original.image"
+            }
+        },
+        "resize_for_detect_borders": {
+            "filter_name": "Resize",
+            "description": "Redimensionar imagen para detección de bordes",
+            "inputs": {
+                "input_image": "main_resize.resized_image"
+            }
+        },
+        "contrast": {
+            "filter_name": "BrightnessContrast",
+            "description": "Ajustar brillo y contraste",
+            "inputs": {
+                "input_image": "resize_for_detect_borders.resized_image"
+            }
+        },
+        "gray": {
+            "filter_name": "Grayscale",
+            "description": "Convertir a escala de grises",
+            "inputs": {
+                "input_image": "contrast.adjusted_image"
+            }
+        },
+        "histogram_autopeaks": {
+            "filter_name": "DetectHistogramPeaks",
+            "description": "Auto detectar los picos claros/oscuros",
+            "inputs": {
+                "input_image": "contrast.adjusted_image"
+            }
+        },
+        "normalize_from_histogram_peaks": {
+            "filter_name": "NormalizeFromHistogram",
+            "description": "Normalizar imagen según picos claros/oscuros",
+            "inputs": {
+                "input_image": "contrast.adjusted_image",
+                "histogram_data": "histogram_autopeaks.histogram_data"
+            }
+        },
+        "blur": {
+            "filter_name": "GaussianBlur",
+            "description": "Aplicar desenfoque para reducir ruido",
+            "inputs": {
+                "input_image": "normalize_from_histogram_peaks.normalized_image"
+            }
+        },
+        "denoise": {
+            "filter_name": "DenoiseNLMeans",
+            "description": "Eliminar ruido preservando bordes",
+            "inputs": {
+                "input_image": "blur.blurred_image"
+            }
+        },
+        "canny_border": {
+            "filter_name": "CannyEdge",
+            "description": "Detectar bordes",
+            "inputs": {
+                "input_image": "denoise.denoised_image"
+            }
+        },
+        "hough_border": {
+            "filter_name": "HoughLines",
+            "description": "Detectar líneas de borde",
+            "inputs": {
+                "edge_image": "canny_border.edge_image",
+                "base_image": "denoise.denoised_image"
+            }
+        },
+        "angle_classify": {
+            "filter_name": "ClassifyLinesByAngle",
+            "description": "Clasificar líneas en horizontales y verticales",
+            "inputs": {
+                "lines_data": "hough_border.lines_data",
+                "base_image": "contrast.adjusted_image"
+            }
+        },
+        "set_borders": {
+            "filter_name": "SelectBorderLines",
+            "description": "Seleccionar las 4 líneas extremas de borde",
+            "inputs": {
+                "base_image": "contrast.adjusted_image",
+                "horizontal_lines": "angle_classify.horizontal_lines",
+                "vertical_lines": "angle_classify.vertical_lines"
+            }
+        },
+        "quad_corners": {
+            "filter_name": "CalculateQuadCorners",
+            "description": "Calcular las 4 esquinas del polígono",
+            "inputs": {
+                "base_image": "contrast.adjusted_image",
+                "selected_lines": "set_borders.selected_lines",
+                "selection_metadata": "set_borders.selection_metadata"
+            }
+        },
+        "scale_to_original": {
+            "filter_name": "ScaleQuadCorners",
+            "description": "Escalar esquinas a resolución de trabajo (main_resize)",
+            "inputs": {
+                "corners": "quad_corners.corners",
+                "corners_metadata": "quad_corners.corners_metadata",
+                "target_image": "main_resize.resized_image"
+            }
+        },
+        "polygon_to_gt": {
+            "filter_name": "PolygonToGTFormat",
+            "description": "Convertir polígono a formato ground truth (coords originales)",
+            "inputs": {
+                "scaled_corners":  "scale_to_original.scaled_corners",
+                "scaled_metadata": "scale_to_original.scaled_metadata"
+            }
+        }
+    }
+}

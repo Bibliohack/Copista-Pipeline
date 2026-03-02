@@ -1,0 +1,18 @@
+{
+    "version": "1.0",
+    "description": "Procesa corpus Heraldo y genera polígonos detectados en formato .gt.json para comparación con anotaciones manuales.",
+    "source_folder": "./__data/heraldo_raw/",
+    "log_file": "./__data/logs/heraldo_claude_batch.log",
+    "targets": [
+        {
+            "filter_id": "polygon_to_gt",
+            "output_name": "gt_data",
+            "destination": {
+                "folder": "./__data/pipeline_polygons/",
+                "prefix": "",
+                "suffix": "",
+                "extension": "gt.json"
+            }
+        }
+    ]
+}
