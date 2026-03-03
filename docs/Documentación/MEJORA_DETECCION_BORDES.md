@@ -257,14 +257,14 @@ Orquestador
 
 ---
 
-## Estrategias de mejora planificadas
+## Estrategias de mejora
 
 ### Estrategia 1 (implementada): Baseline Hough
 El pipeline actual usa detección de bordes Canny seguida de transformada de Hough. Es el punto de partida para medir mejoras.
 
 **Referencia:** `experiments/001_baseline/`
 
-### Estrategia 2: Projection Profile (paper Shamqoli)
+### Estrategia 2 (pendiente): Projection Profile (paper Shamqoli)
 Aplicar histogramas de proyección sobre la imagen de bordes (Prewitt):
 - **Picos** en los extremos del histograma → borde físico del papel
 - **Fase 2 del paper**: refinamiento con cuartiles (LQ/UQ) para detectar texto de página vecina y recalcular ese borde
@@ -272,19 +272,58 @@ Aplicar histogramas de proyección sobre la imagen de bordes (Prewitt):
 
 Paper de referencia: `docs/Info_relacionada/Shamqoli-...-BorderDetection...pdf`
 
-### Estrategia 3: Proporción invariante del corpus
-Todas las páginas del Heraldo son la misma hoja física → misma proporción ancho/alto:
-- Acumular detecciones del corpus → histograma de proporciones → pico = proporción real
-- Cuando una detección diverge del pico → recalcular el borde usando la proporción correcta
-- Especialmente útil para inferir el borde inferior (lomo) cuando falla
+### Estrategia 3 (implementada): Proporción invariante del corpus
+
+Todas las páginas del Heraldo son la misma hoja física → misma proporción `avg(izq, der) / superior`.
+
+**Calibración del corpus** (implementada):
+- `CalculatePolygonProportion`: mide la proporción de la detección de cada imagen.
+- `FindPeakProportion` / `scripts/find_peak_proportion.py`: acumula todas las proporciones del corpus y encuentra el pico mediante histograma con suavizado gaussiano.
+
+**Uso como restricción de detección** (implementado):
+- `RefinePolygonByArea`: búsqueda exhaustiva sobre el pool completo de líneas Hough buscando la combinación con proporción + área más cercana al objetivo. Reemplaza a `SelectBorderLines`.
+- `RefinePolygonByCanny`: igual que `RefinePolygonByArea` pero con pre-filtrado por soporte en imagen Canny para descartar líneas sin respaldo real antes de la búsqueda.
+
+Ver `FILTROS_PROPORCION_CORPUS.md` y `FILTROS_REFINAMIENTO_POLIGONO.md` para documentación detallada.
 
 ### Las tres estrategias son complementarias
 
-| Técnica | Fortaleza |
-|---------|-----------|
-| Hough lines (actual) | Detecta líneas físicas rectas con precisión cuando el contraste es bueno |
-| Projection profile | Robusto cuando la línea no es visible; maneja texto de página vecina |
-| Proporción invariante | Valida y corrige cuando alguno de los dos falla |
+| Técnica | Fortaleza | Estado |
+|---------|-----------|--------|
+| Hough lines (base) | Detecta líneas físicas rectas con precisión cuando el contraste es bueno | Implementada |
+| Proporción invariante | Valida y corrige cuando `SelectBorderLines` elige líneas de elementos externos | Implementada |
+| Projection profile | Robusto cuando la línea no es visible; maneja texto de página vecina | Pendiente |
+
+---
+
+## Estado actual de implementación
+
+### Filtros implementados
+
+| Filtro | Función en la estrategia |
+|--------|--------------------------|
+| `HoughLines` | Detección base de líneas (Estrategia 1) |
+| `ClassifyLinesByAngle` | Separar líneas por orientación |
+| `SelectBorderLines` | Selección simple de las 4 líneas más extremas (Estrategia 1) |
+| `CalculateQuadCorners` | Calcular vértices del polígono |
+| `CalculatePolygonProportion` | Medir la proporción de una detección individual (Estrategia 3 - calibración) |
+| `FindPeakProportion` | Encontrar la proporción más frecuente del corpus (Estrategia 3 - calibración) |
+| `RefinePolygonByArea` | Búsqueda por proporción + área (Estrategia 3 - restricción) |
+| `RefinePolygonByCanny` | Búsqueda con soporte Canny (Estrategia 3 - restricción) |
+| `PolygonToGTFormat` | Convertir resultado a formato de evaluación |
+
+### Herramientas de soporte implementadas
+
+| Herramienta | Ubicación | Función |
+|-------------|-----------|---------|
+| `find_peak_proportion.py` | `scripts/` | Script autónomo de calibración de corpus |
+| `ground_truth_annotator.py` | `src/` | GUI para anotación manual de ground truth |
+| `iou_metrics.py` | `src/` | Evaluación IoU de experimentos |
+| `_polygon_geometry.py` | `src/filter_library/` | Módulo interno de geometría compartido |
+
+### Pendiente de implementación
+
+- **Estrategia 2 (Projection Profile):** sin filtros implementados aún. Ver paper Shamqoli en `docs/Info_relacionada/`.
 
 ---
 

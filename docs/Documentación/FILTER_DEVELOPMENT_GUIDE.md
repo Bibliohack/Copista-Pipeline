@@ -255,15 +255,106 @@ pueden verificar `self.without_preview` para omitir la generación de sample_ima
 - [ ] La clase hereda de `BaseFilter`
 - [ ] `FILTER_NAME` es único y en PascalCase
 - [ ] `DESCRIPTION` describe claramente la función
-- [ ] `INPUTS` lista todas las entradas necesarias
+- [ ] `INPUTS` lista todas las entradas necesarias (puede ser `{}` si es filtro de corpus)
 - [ ] `OUTPUTS` incluye `"sample_image": "image"`
 - [ ] **Si produce datos con coordenadas, incluye output `*_metadata` con `image_width` e `image_height`**
-- [ ] `PARAMS` tiene `default`, `min`, `max`, `step`, `description` para cada parámetro
+- [ ] `PARAMS` tiene `default`, `min`, `max`, `step`, `description` para parámetros numéricos
+- [ ] **Parámetros de texto (rutas, patrones): solo `default` y `description`, sin `min`/`max`/`step`**
 - [ ] `process()` retorna **todos** los outputs definidos
 - [ ] `process()` maneja el caso donde `inputs` puede estar vacío
 - [ ] Si produce solo imágenes, es compatible con checkpoint
 - [ ] Los valores de parámetros se validan/corrigen si es necesario (ej: kernel impar)
 - [ ] **Las claves de metadata usan snake_case sin prefijo `_`**
+- [ ] Importación añadida en `filter_library/__init__.py` y nombre en `__all__`
+- [ ] Si comparte código con otro filtro, el código compartido va en `_modulo_interno.py`
+
+---
+
+## Patrones especiales
+
+### Filtros que leen de carpeta externa (sin inputs del pipeline)
+
+Algunos filtros operan a nivel de **corpus**, no de imagen individual. No reciben inputs del pipeline; toda su información la obtienen de una carpeta configurada como parámetro.
+
+**Ejemplo:** `FindPeakProportion` lee JSONs de `source_folder` y calcula la proporción más frecuente del corpus.
+
+```python
+class MiFiltroDeCorpus(BaseFilter):
+    """Lee archivos externos; no consume inputs del pipeline."""
+
+    FILTER_NAME = "MiFiltroDeCorpus"
+    DESCRIPTION = "Analiza una carpeta de archivos para obtener estadísticas de corpus."
+
+    INPUTS = {}  # Sin inputs del pipeline
+
+    OUTPUTS = {
+        "corpus_data": "metadata",
+        "sample_image": "image"
+    }
+
+    PARAMS = {
+        "source_folder": {
+            "default": "",
+            "description": "Carpeta con los archivos a analizar. Obligatorio."
+            # Sin min/max/step: es un parámetro de texto (ruta)
+        },
+        "file_pattern": {
+            "default": "*.json",
+            "description": "Patrón glob para filtrar archivos."
+            # Sin min/max/step: es un parámetro de texto
+        },
+        "umbral": {
+            "default": 0.5,
+            "min": 0.0,
+            "max": 1.0,
+            "step": 0.05,
+            "description": "Umbral numérico (sí tiene min/max/step)."
+        }
+    }
+
+    def process(self, inputs: Dict[str, Any], original_image: np.ndarray) -> Dict[str, Any]:
+        source_folder = self.params.get("source_folder", "")
+        # original_image puede ignorarse; el filtro lee de disco
+        # ...
+```
+
+**Reglas para parámetros de texto (rutas, patrones glob, nombres):**
+- Omitir las claves `min`, `max` y `step`.
+- Solo incluir `default` y `description`.
+- El configurador gráfico mostrará un campo de texto en lugar de slider.
+
+**Cuándo usar este patrón:**
+- Estadísticas de corpus (proporciones, histogramas globales).
+- Filtros que requieren un archivo de calibración externo.
+- Se recomienda complementar con un script independiente en `scripts/`. Ver `FILTROS_PROPORCION_CORPUS.md` y `BATCH_PRE_POST_PROCESS.md`.
+
+---
+
+### Módulos internos de utilidad (no filtros)
+
+Cuando varios filtros comparten código de geometría, matemáticas u otras utilidades, ese código va en un **módulo interno** dentro de `filter_library/`. Los módulos internos se distinguen por el prefijo `_` en el nombre del archivo.
+
+**Características:**
+- El archivo empieza con `_`: `_mi_modulo.py`.
+- **No** define ninguna subclase de `BaseFilter`.
+- **No** se registra en `FILTER_REGISTRY`.
+- **No** se importa en `__init__.py`.
+- Los filtros que lo necesitan lo importan directamente con import relativo:
+
+```python
+# En refine_polygon_by_area.py
+from ._polygon_geometry import (
+    add_positions, limit_lines, exhaustive_search,
+    candidate_to_border_lines,
+)
+```
+
+**Ejemplo existente:** `_polygon_geometry.py` contiene funciones de geometría de polígonos compartidas por `RefinePolygonByArea` y `RefinePolygonByCanny`.
+
+**Cuándo crear un módulo interno:**
+- El mismo bloque de código (>20 líneas) sería copiado en dos o más filtros.
+- La lógica es puramente utilitaria y no tiene sentido exponerla como un filtro independiente.
+- Funciones matemáticas, parsers de formato, helpers de visualización compartidos.
 
 ---
 
@@ -280,3 +371,21 @@ class BaseFilter(ABC):
 ```
 
 Simplemente define la clase en `filter_library/` y estará disponible.
+
+**Para un filtro normal**, además del archivo `.py`, hay que añadir la importación en `filter_library/__init__.py`:
+
+```python
+# En filter_library/__init__.py
+from .mi_filtro import MiFiltro
+```
+
+Y añadir el nombre a `__all__`:
+
+```python
+__all__ = [
+    # ... filtros existentes ...
+    "MiFiltro",
+]
+```
+
+Los módulos internos (`_*.py`) **no** se añaden a `__init__.py`.
