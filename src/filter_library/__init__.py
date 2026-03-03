@@ -44,6 +44,8 @@ from .high_pass_filter import HighPassFilter
 from .polygon_to_gt_format import PolygonToGTFormat
 from .calculate_polygon_proportion import CalculatePolygonProportion
 from .find_peak_proportion import FindPeakProportion
+from .refine_polygon_by_area import RefinePolygonByArea
+from .refine_polygon_by_canny import RefinePolygonByCanny
 
 # Lista de todos los filtros disponibles
 __all__ = [
@@ -89,6 +91,8 @@ __all__ = [
     "PolygonToGTFormat",
     "CalculatePolygonProportion",
     "FindPeakProportion",
+    "RefinePolygonByArea",
+    "RefinePolygonByCanny",
 ]
 
 
