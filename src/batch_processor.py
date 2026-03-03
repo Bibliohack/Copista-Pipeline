@@ -19,6 +19,7 @@ Características:
 
 import sys
 import json
+import subprocess
 from pathlib import Path
 from typing import Dict, List, Any, Optional
 from collections import OrderedDict
@@ -63,16 +64,20 @@ class BatchConfig:
         # Extraer campos
         self.source_folder = Path(self.config.get("source_folder", "."))
         self.targets = self.config.get("targets", [])
-        
+        self.preprocess: List[Dict] = self.config.get("preprocess", [])
+        self.postprocess: List[Dict] = self.config.get("postprocess", [])
+
         log_file_str = self.config.get("log_file")
         if log_file_str:
             self.log_file = Path(log_file_str)
-        
+
         # Validar estructura básica
         if not self.targets:
             raise ValueError("La configuración debe tener al menos un target")
-        
-        print(f"✓ Configuración cargada: {len(self.targets)} target(s)")
+
+        pre  = f", {len(self.preprocess)} preprocess"  if self.preprocess  else ""
+        post = f", {len(self.postprocess)} postprocess" if self.postprocess else ""
+        print(f"✓ Configuración cargada: {len(self.targets)} target(s){pre}{post}")
     
     def validate_structure(self):
         """Valida la estructura de cada target"""
@@ -338,6 +343,93 @@ class OutputSaver:
         
         return True
 
+class ScriptRunner:
+    """
+    Ejecuta scripts externos de pre/postproceso definidos en batch_config.json.
+
+    Cada script recibe una interfaz estándar:
+        python script.py --input <carpeta> --output <carpeta> [--params '<JSON>']
+
+    Los scripts son independientes del pipeline y pueden hacer operaciones
+    de corpus: análisis estadístico, encadenamiento de pipelines, métricas, etc.
+    """
+
+    def __init__(self, scripts: List[Dict], base_dir: Path):
+        self.scripts = scripts
+        self.base_dir = base_dir  # Rutas relativas se resuelven desde aquí
+
+    def run_all(self, phase: str) -> bool:
+        """
+        Ejecuta todos los scripts de la fase.
+
+        Args:
+            phase: Nombre de la fase ('preproceso' o 'postproceso') para mensajes.
+
+        Returns:
+            True si todos se completaron con éxito.
+        """
+        if not self.scripts:
+            return True
+
+        print(f"\n{'='*60}")
+        print(f"SCRIPTS DE {phase.upper()}")
+        print(f"{'='*60}")
+
+        for i, script_config in enumerate(self.scripts):
+            print(f"\n[{i+1}/{len(self.scripts)}]", end=" ")
+            if not self._run_one(script_config):
+                return False
+
+        print(f"\n✅ {phase.capitalize()} completado\n")
+        return True
+
+    def _run_one(self, config: Dict) -> bool:
+        """Construye y ejecuta el comando de un script."""
+        script_rel = config.get("script", "").strip()
+        input_path  = config.get("input",  "")
+        output_path = config.get("output", "")
+        params      = config.get("params", {})
+
+        if not script_rel:
+            print("❌ Script no especificado en la configuración")
+            return False
+
+        # Resolver ruta del script
+        script = Path(script_rel)
+        if not script.is_absolute():
+            script = (self.base_dir / script).resolve()
+
+        if not script.exists():
+            print(f"❌ Script no encontrado: {script}")
+            return False
+
+        print(f"Ejecutando: {script.name}")
+        if input_path:
+            print(f"  input:  {input_path}")
+        if output_path:
+            print(f"  output: {output_path}")
+        if params:
+            print(f"  params: {json.dumps(params)}")
+
+        # Construir comando
+        cmd = [sys.executable, str(script)]
+        if input_path:
+            cmd += ["--input", input_path]
+        if output_path:
+            cmd += ["--output", output_path]
+        if params:
+            cmd += ["--params", json.dumps(params)]
+
+        result = subprocess.run(cmd)
+
+        if result.returncode != 0:
+            print(f"❌ Script falló con código de salida {result.returncode}")
+            return False
+
+        print(f"✓ {script.name} completado exitosamente")
+        return True
+
+
 class BatchProcessor:
     """Procesador por lotes principal"""
     
@@ -438,7 +530,14 @@ class BatchProcessor:
         if self.browser is None or self.batch_config is None:
             print("❌ ERROR: BatchProcessor no inicializado correctamente")
             return
-        
+
+        # ── Preproceso ────────────────────────────────────────────────────────
+        base_dir = Path(self.batch_config_path).parent
+        pre_runner = ScriptRunner(self.batch_config.preprocess, base_dir)
+        if not pre_runner.run_all("preproceso"):
+            print("❌ Preproceso fallido. Abortando.")
+            return
+
         print("\n" + "="*60)
         print("PROCESANDO IMÁGENES")
         print("="*60)
@@ -476,6 +575,10 @@ class BatchProcessor:
         
         # Mostrar resumen
         self._print_summary()
+
+        # ── Postproceso ───────────────────────────────────────────────────────
+        post_runner = ScriptRunner(self.batch_config.postprocess, base_dir)
+        post_runner.run_all("postproceso")
     
     def _get_last_filter_needed(self) -> str:
         """
