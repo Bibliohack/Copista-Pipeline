@@ -42,6 +42,8 @@ from .hocr_to_pdf import HOCRtoPDF
 from .scale_hocr import ScaleHOCR
 from .high_pass_filter import HighPassFilter
 from .polygon_to_gt_format import PolygonToGTFormat
+from .calculate_polygon_proportion import CalculatePolygonProportion
+from .find_peak_proportion import FindPeakProportion
 
 # Lista de todos los filtros disponibles
 __all__ = [
@@ -85,6 +87,8 @@ __all__ = [
     "ScaleHOCR",
     "HighPassFilter",
     "PolygonToGTFormat",
+    "CalculatePolygonProportion",
+    "FindPeakProportion",
 ]
 
 
