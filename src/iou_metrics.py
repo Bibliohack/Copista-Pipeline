@@ -70,7 +70,8 @@ def evaluate_experiment(experiment_path: Path, gt_root: Path) -> dict | None:
     """
     Evalúa un experimento completo comparando cada .det.json contra su .gt.json.
 
-    Busca subsets automáticamente: results/Derecha/, results/Izquierda/, etc.
+    Itera directamente los *.det.json en results/ (estructura plana, sin subsets).
+    Busca el GT correspondiente en gt_root/ con el mismo stem + .gt.json.
     Sólo evalúa imágenes que tengan tanto .det.json como .gt.json.
 
     Returns:
@@ -79,51 +80,41 @@ def evaluate_experiment(experiment_path: Path, gt_root: Path) -> dict | None:
     results_root = experiment_path / "results"
 
     if not results_root.exists():
-        print(f"  ❌ No existe carpeta results/ en {experiment_path}")
+        print(f"  No existe carpeta results/ en {experiment_path}")
         return None
 
     all_results = []
+    evaluated = skipped = 0
 
-    for subset_dir in sorted(results_root.iterdir()):
-        if not subset_dir.is_dir():
+    det_files = sorted(results_root.glob("*.det.json"))
+
+    for det_path in det_files:
+        stem = Path(det_path.stem).stem  # "001_derecha.det.json" → stem="001_derecha.det" → stem="001_derecha"
+        gt_path = gt_root / (stem + ".gt.json")
+        if not gt_path.exists():
+            skipped += 1
             continue
 
-        gt_subset_dir = gt_root / subset_dir.name
-        if not gt_subset_dir.exists():
-            print(f"  ⚠️  Sin ground truth para subset '{subset_dir.name}', omitiendo.")
-            continue
+        with open(det_path, encoding="utf-8") as f:
+            det_data = json.load(f)
+        with open(gt_path, encoding="utf-8") as f:
+            gt_data = json.load(f)
 
-        det_files = sorted(subset_dir.glob("*.det.json"))
-        evaluated = skipped = 0
+        gt_np  = polygon_to_numpy(gt_data.get("polygon", []))
+        det_np = polygon_to_numpy(det_data.get("polygon", []))
+        iou    = compute_iou(gt_np, det_np)
 
-        for det_path in det_files:
-            stem = Path(det_path.stem).stem  # "001.det.json" → stem="001.det" → stem="001"
-            gt_path = gt_subset_dir / (stem + ".gt.json")
-            if not gt_path.exists():
-                skipped += 1
-                continue
+        all_results.append({
+            "image":             stem,
+            "iou":               round(iou, 4),
+            "all_corners_found": det_data.get("all_corners_found", False),
+        })
+        evaluated += 1
 
-            with open(det_path, encoding="utf-8") as f:
-                det_data = json.load(f)
-            with open(gt_path, encoding="utf-8") as f:
-                gt_data = json.load(f)
-
-            gt_np  = polygon_to_numpy(gt_data.get("polygon", []))
-            det_np = polygon_to_numpy(det_data.get("polygon", []))
-            iou    = compute_iou(gt_np, det_np)
-
-            all_results.append({
-                "image":             stem,
-                "subset":            subset_dir.name,
-                "iou":               round(iou, 4),
-                "all_corners_found": det_data.get("all_corners_found", False),
-            })
-            evaluated += 1
-
-        print(f"  Subset '{subset_dir.name}': {evaluated} evaluadas, {skipped} sin GT.")
+    print(f"  {evaluated} evaluadas, {skipped} sin GT.")
 
     if not all_results:
-        print("  ⚠️  No se encontraron pares GT / DET para evaluar.")
+        print("  No se encontraron pares GT / DET para evaluar.")
         return None
 
     ious   = [r["iou"] for r in all_results]
@@ -142,7 +133,7 @@ def evaluate_experiment(experiment_path: Path, gt_root: Path) -> dict | None:
             "min_iou":          round(float(np.min(ious)),    4),
             "max_iou":          round(float(np.max(ious)),    4),
         },
-        "results": sorted(all_results, key=lambda r: (r["subset"], r["image"])),
+        "results": sorted(all_results, key=lambda r: r["image"]),
     }
 
 
@@ -190,7 +181,7 @@ def _print_experiment_summary(metrics: dict):
     print(f"  Por imagen:")
     for r in metrics["results"]:
         mark = "✓" if r["all_corners_found"] else "✗"
-        print(f"    [{mark}] {r['subset']}/{r['image']}  IoU={r['iou']:.4f}")
+        print(f"    [{mark}] {r['image']}  IoU={r['iou']:.4f}")
 
 
 # ── Subcomando: compare ───────────────────────────────────────────────────────
