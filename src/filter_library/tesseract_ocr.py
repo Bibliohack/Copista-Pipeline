@@ -6,8 +6,15 @@ import cv2
 import numpy as np
 from typing import Dict, Any, List, Tuple
 from pathlib import Path
-import pytesseract
-from PIL import Image
+try:
+    import pytesseract
+    from PIL import Image
+    _TESSERACT_AVAILABLE = True
+except ImportError:
+    pytesseract = None
+    Image = None
+    _TESSERACT_AVAILABLE = False
+
 from .base_filter import BaseFilter, FILTER_REGISTRY
 
 
@@ -81,8 +88,11 @@ class TesseractOCR(BaseFilter):
     }
     
     def process(self, inputs: Dict[str, Any], original_image: np.ndarray) -> Dict[str, Any]:
+        if not _TESSERACT_AVAILABLE:
+            raise RuntimeError("pytesseract no está instalado. Ejecuta: pip install pytesseract")
+
         input_img = inputs.get("input_image", original_image)
-        
+
         h, w = input_img.shape[:2]
         
         # Parámetros
