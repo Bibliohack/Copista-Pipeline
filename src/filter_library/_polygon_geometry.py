@@ -141,24 +141,53 @@ def exhaustive_search(
     prop_weight: float,
     area_weight: float,
     top_k: int = 5,
+    zone_top: float = 0.0,
+    zone_bottom: float = 0.0,
+    zone_left: float = 0.0,
+    zone_right: float = 0.0,
+    min_area_fraction: float = 0.0,
 ) -> List[Dict]:
     """
     Prueba todas las combinaciones (top, bottom) × (left, right) y devuelve
     los top_k candidatos ordenados por score descendente.
 
     Complejidad: O(Nh² × Nv²). Usar limit_lines antes para controlar el tamaño.
+
+    Parámetros de zona (0 = desactivado):
+      zone_top:    fracción superior de la imagen donde puede estar la línea top
+      zone_bottom: fracción inferior de la imagen donde puede estar la línea bottom
+      zone_left:   fracción lateral izquierda donde puede estar la línea left
+      zone_right:  fracción lateral derecha donde puede estar la línea right
+
+    min_area_fraction: fracción mínima de img_w*img_h que debe tener el polígono (0=desactivado).
+
+    Cuando alguna zona está activa, el score se simplifica a solo proporción.
     """
     img_area   = float(img_w * img_h)
+    use_zones  = zone_top > 0 or zone_bottom > 0 or zone_left > 0 or zone_right > 0
+    min_area_px = min_area_fraction * img_area if min_area_fraction > 0 else 0.0
     candidates = []
 
     for h_top in h_lines:
+        # Filtro de zona: la línea top solo puede estar en el X% superior
+        if zone_top > 0 and h_top["pos"] >= img_h * zone_top:
+            continue
         for h_bot in h_lines:
             if h_bot["pos"] <= h_top["pos"]:
                 continue  # top debe tener Y menor que bottom
+            # Filtro de zona: la línea bottom solo puede estar en el Y% inferior
+            if zone_bottom > 0 and h_bot["pos"] <= img_h * (1 - zone_bottom):
+                continue
             for v_left in v_lines:
+                # Filtro de zona: la línea left solo puede estar en el Z% lateral izquierdo
+                if zone_left > 0 and v_left["pos"] >= img_w * zone_left:
+                    continue
                 for v_right in v_lines:
                     if v_right["pos"] <= v_left["pos"]:
                         continue  # left debe tener X menor que right
+                    # Filtro de zona: la línea right solo puede estar en el Z% lateral derecho
+                    if zone_right > 0 and v_right["pos"] <= img_w * (1 - zone_right):
+                        continue
 
                     poly = polygon_from_lines(h_top, h_bot, v_left, v_right)
                     if poly is None:
@@ -169,19 +198,48 @@ def exhaustive_search(
                     if prop is None or area < 1.0:
                         continue
 
-                    sc = score_candidate(prop, area, target_proportion, target_area,
-                                         img_area, prop_weight, area_weight)
+                    # Piso mínimo de área para descartar polígonos degenerados
+                    if min_area_px > 0 and area < min_area_px:
+                        continue
+
+                    # Score: solo proporción cuando zonas activas, compuesto si no
+                    if use_zones:
+                        prop_err = abs(prop - target_proportion) / max(target_proportion, 1e-9)
+                        sc = max(0.0, 1.0 - prop_err)
+                    else:
+                        sc = score_candidate(prop, area, target_proportion, target_area,
+                                             img_area, prop_weight, area_weight)
+
+                    # Calcular errores individuales para ordenación lexicográfica
+                    prop_err = abs(prop - target_proportion) / max(target_proportion, 1e-9)
+                    if target_area > 0:
+                        area_err = abs(area - target_area) / max(target_area, 1.0)
+                    else:
+                        # Sin target_area: area_err inversamente proporcional al tamaño
+                        # (menor área_err = mayor área relativa)
+                        area_err = 1.0 - min(1.0, area / max(img_area, 1.0))
+
                     candidates.append({
                         "score":      sc,
                         "proportion": round(prop, 6),
                         "area":       round(area, 1),
+                        "area_err":   area_err,
+                        "prop_err":   prop_err,
                         "top":        h_top,
                         "bottom":     h_bot,
                         "left":       v_left,
                         "right":      v_right,
                     })
 
-    candidates.sort(key=lambda c: c["score"], reverse=True)
+    if use_zones:
+        # Con zonas activas: ordenar solo por error de proporción
+        candidates.sort(key=lambda c: c["prop_err"])
+    elif target_area > 0:
+        # Ordenación lexicográfica: primero por error de área, luego por error de proporción
+        candidates.sort(key=lambda c: (c["area_err"], c["prop_err"]))
+    else:
+        # Sin target_area: mantener comportamiento original (score ponderado, maximizar tamaño)
+        candidates.sort(key=lambda c: c["score"], reverse=True)
     return candidates[:top_k]
 
 

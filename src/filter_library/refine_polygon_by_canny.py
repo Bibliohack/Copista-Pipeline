@@ -189,12 +189,73 @@ class RefinePolygonByCanny(BaseFilter):
             "step":    0.05,
             "description": "Peso del término de área en el score (0-1).",
         },
+        "target_area_fraction": {
+            "default": 0.0,
+            "min":     0.0,
+            "max":     1.0,
+            "step":    0.01,
+            "description": (
+                "Fracción del área de imagen que debe cubrir el polígono (invariante al zoom). "
+                "0 = no usar. Cuando > 0, se convierte internamente a píxeles² y tiene "
+                "prioridad sobre target_area."
+            ),
+        },
         "top_k": {
             "default": 3,
             "min":     1,
             "max":     10,
             "step":    1,
             "description": "Número de candidatos a conservar (se usa el primero como resultado).",
+        },
+        "zone_top": {
+            "default": 0.0,
+            "min":     0.0,
+            "max":     1.0,
+            "step":    0.05,
+            "description": (
+                "Fracción de imagen donde buscar la línea top (0=desactivado). "
+                "Ej: 0.35 = top 35% de altura."
+            ),
+        },
+        "zone_bottom": {
+            "default": 0.0,
+            "min":     0.0,
+            "max":     1.0,
+            "step":    0.05,
+            "description": (
+                "Fracción de imagen donde buscar la línea bottom (0=desactivado). "
+                "Más estrecho que los demás: el lomo está muy cerca del borde."
+            ),
+        },
+        "zone_left": {
+            "default": 0.0,
+            "min":     0.0,
+            "max":     1.0,
+            "step":    0.05,
+            "description": (
+                "Fracción de imagen donde buscar la línea left (0=desactivado). "
+                "Ej: 0.35 = left 35% de ancho."
+            ),
+        },
+        "zone_right": {
+            "default": 0.0,
+            "min":     0.0,
+            "max":     1.0,
+            "step":    0.05,
+            "description": (
+                "Fracción de imagen donde buscar la línea right (0=desactivado). "
+                "Ej: 0.35 = right 35% de ancho."
+            ),
+        },
+        "min_area_fraction": {
+            "default": 0.0,
+            "min":     0.0,
+            "max":     1.0,
+            "step":    0.05,
+            "description": (
+                "Fracción mínima del área de imagen que debe cubrir el polígono. "
+                "Solo descarta polígonos degenerados (0=desactivado)."
+            ),
         },
         "visualization_size": {
             "default": 900,
@@ -220,7 +281,10 @@ class RefinePolygonByCanny(BaseFilter):
         target_proportion = extract_target_proportion(
             self.params["target_proportion"], proportion_data
         )
-        target_area    = float(self.params["target_area"])
+        target_area          = float(self.params["target_area"])
+        target_area_fraction = float(self.params["target_area_fraction"])
+        if target_area_fraction > 0:
+            target_area = target_area_fraction * img_w * img_h
         min_support    = float(self.params["min_canny_support"])
         band_px        = int(self.params["canny_band_px"])
         sample_step    = int(self.params["canny_sample_step"])
@@ -228,6 +292,11 @@ class RefinePolygonByCanny(BaseFilter):
         prop_weight    = float(self.params["proportion_weight"])
         area_weight    = float(self.params["area_weight"])
         top_k          = int(self.params["top_k"])
+        zone_top       = float(self.params["zone_top"])
+        zone_bottom    = float(self.params["zone_bottom"])
+        zone_left      = float(self.params["zone_left"])
+        zone_right     = float(self.params["zone_right"])
+        min_area_fraction = float(self.params["min_area_fraction"])
 
         # Preparar Canny (convertir a escala de grises binaria si es BGR)
         if canny_image is not None:
@@ -306,6 +375,11 @@ class RefinePolygonByCanny(BaseFilter):
             img_w, img_h,
             prop_weight, area_weight,
             top_k,
+            zone_top=zone_top,
+            zone_bottom=zone_bottom,
+            zone_left=zone_left,
+            zone_right=zone_right,
+            min_area_fraction=min_area_fraction,
         )
 
         if not candidates:
