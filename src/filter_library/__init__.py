@@ -41,11 +41,17 @@ from .tesseract_ocr import TesseractOCR
 from .hocr_to_pdf import HOCRtoPDF
 from .scale_hocr import ScaleHOCR
 from .high_pass_filter import HighPassFilter
+from .background_normalization import BackgroundNormalization
+from .clahe_filter import CLAHEFilter
+from .retinex_filter import RetinexFilter
+from .homomorphic_filter import HomomorphicFilter
 from .polygon_to_gt_format import PolygonToGTFormat
 from .calculate_polygon_proportion import CalculatePolygonProportion
 from .find_peak_proportion import FindPeakProportion
 from .refine_polygon_by_area import RefinePolygonByArea
 from .refine_polygon_by_canny import RefinePolygonByCanny
+from .projection_profile_border import ProjectionProfileBorder
+from .filter_lines_by_ppb_zone import FilterLinesByPPBZone
 
 # Lista de todos los filtros disponibles
 __all__ = [
@@ -88,11 +94,17 @@ __all__ = [
     "HOCRtoPDF",
     "ScaleHOCR",
     "HighPassFilter",
+    "BackgroundNormalization",
+    "CLAHEFilter",
+    "RetinexFilter",
+    "HomomorphicFilter",
     "PolygonToGTFormat",
     "CalculatePolygonProportion",
     "FindPeakProportion",
     "RefinePolygonByArea",
     "RefinePolygonByCanny",
+    "ProjectionProfileBorder",
+    "FilterLinesByPPBZone",
 ]
 
 
