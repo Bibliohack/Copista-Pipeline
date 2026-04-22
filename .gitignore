@@ -222,6 +222,7 @@ __marimo__/
 /bin/checkpoints.json
 /bin/params.json
 /bin/batch_config.json
+gemini-api-key
 
 # source raw images form processing
 __data/
