@@ -36,6 +36,7 @@ import json
 import os
 import sys
 import shutil
+import time
 from pathlib import Path
 from datetime import datetime
 from typing import Dict, List, Any, Optional, Tuple
@@ -94,7 +95,12 @@ class ParamConfigurator:
         # Cache de imagen actual
         self.current_image = None
         self.needs_reprocess = True
-        
+
+        # Debounce: retardo antes de reprocesar al mover parámetros
+        self.reprocess_delay_ms = 0       # 0 = inmediato (comportamiento actual)
+        self.last_param_change_time = 0.0  # timestamp del último cambio de param
+        self._DELAY_OPTIONS = [0, 200, 500, 1000]  # ciclo de opciones en ms
+
         # Configuración de ventanas
         cv2.namedWindow(self.WINDOW_RESULT, cv2.WINDOW_NORMAL)
         cv2.namedWindow(self.WINDOW_PARAMS, cv2.WINDOW_NORMAL)
@@ -211,10 +217,16 @@ class ParamConfigurator:
         cv2.putText(param_img, f"Editando: {edit_id} ({edit_name}){edit_suffix}", (10, y), font, 0.5, edit_color, 1)
         y += 25
         
+        # Mostrar delay actual
+        delay_text = f"Refresco: {'inmediato' if self.reprocess_delay_ms == 0 else str(self.reprocess_delay_ms)+'ms'}  [t]=cambiar"
+        delay_color = (100, 255, 100) if self.reprocess_delay_ms == 0 else (0, 200, 255)
+        cv2.putText(param_img, delay_text, (10, y), font, 0.38, delay_color, 1)
+        y += 18
+
         # Separador
         cv2.line(param_img, (10, y), (490, y), (100, 100, 100), 1)
         y += 15
-        
+
         # Parámetros del filtro que estamos editando
         cv2.putText(param_img, "PARAMETROS:", (10, y), font, 0.5, (255, 255, 0), 1)
         y += 20
@@ -272,6 +284,7 @@ class ParamConfigurator:
             "PgUp/PgDown: Filtro ant/sig (edicion)",
             "UP/DOWN: Param ant/sig | LEFT/RIGHT: Valor -/+",
             "c: Agregar/quitar checkpoint",  # ← CAMBIO: Texto actualizado
+            "[t]: Cambiar retardo de refresco (inmediato/200ms/500ms/1000ms)",
             "s: Guardar | r: Recargar | h: Ayuda | q: Salir"
         ]
         
@@ -371,7 +384,8 @@ class ParamConfigurator:
         if new_value != current:
             instance.set_param(param_name, new_value)
             self.needs_reprocess = True
-            
+            self.last_param_change_time = time.time()
+
             # ← CAMBIO: Lógica ultra-simple con último checkpoint
             if self.cache_manager.has_checkpoints():
                 last_checkpoint = self.cache_manager.get_last_checkpoint()
@@ -446,7 +460,12 @@ class ParamConfigurator:
         
         while True:
             if self.needs_reprocess:
-                self.process_and_display()
+                if self.reprocess_delay_ms == 0:
+                    self.process_and_display()
+                else:
+                    elapsed_ms = (time.time() - self.last_param_change_time) * 1000
+                    if elapsed_ms >= self.reprocess_delay_ms:
+                        self.process_and_display()
             
             self.render_params_window()
             
@@ -517,6 +536,12 @@ class ParamConfigurator:
                 self.needs_reprocess = True
                 print("✓ Parámetros recargados")
             
+            elif key == ord('t'):
+                idx = self._DELAY_OPTIONS.index(self.reprocess_delay_ms) if self.reprocess_delay_ms in self._DELAY_OPTIONS else 0
+                self.reprocess_delay_ms = self._DELAY_OPTIONS[(idx + 1) % len(self._DELAY_OPTIONS)]
+                delay_text = f"{self.reprocess_delay_ms}ms" if self.reprocess_delay_ms > 0 else "inmediato"
+                print(f"⏱  Retardo de refresco: {delay_text}")
+
             elif key == ord('h'):
                 edit_id = self.get_current_edit_id()
                 if edit_id:

@@ -26,6 +26,16 @@ class BaseFilter(ABC):
         super().__init_subclass__(**kwargs)
         if hasattr(cls, 'FILTER_NAME') and cls.FILTER_NAME != "base":
             FILTER_REGISTRY[cls.FILTER_NAME] = cls
+            # Inyectar 'enabled' al final del PARAMS de cada filtro
+            if 'enabled' not in cls.PARAMS:
+                cls.PARAMS = dict(cls.PARAMS)  # copia para no modificar padre
+                cls.PARAMS['enabled'] = {
+                    'default': 1,
+                    'min': 0,
+                    'max': 1,
+                    'step': 1,
+                    'description': 'Activar/desactivar filtro: 0=pass-through (no procesa), 1=activo'
+                }
     
     def __init__(self, params: Dict[str, Any] = None, without_preview: bool = False):
         """
@@ -93,6 +103,59 @@ class BaseFilter(ABC):
         lines.append(f"{'='*60}\n")
         return "\n".join(lines)
     
+    def execute(self, inputs: Dict[str, Any], original_image: np.ndarray) -> Dict[str, Any]:
+        """
+        Wrapper público de process(). Gestiona el pass-through cuando enabled=0.
+        El PipelineProcessor debe llamar a este método, no a process() directamente.
+        """
+        if not self.params.get('enabled', 1):
+            return self._passthrough(inputs, original_image)
+        return self.process(inputs, original_image)
+
+    def _passthrough(self, inputs: Dict[str, Any], original_image: np.ndarray) -> Dict[str, Any]:
+        """
+        Devuelve outputs con la imagen de entrada sin modificar.
+        Para cada output de tipo 'image', busca el primer input de tipo 'image' y lo propaga.
+        Para sample_image, genera una imagen con texto "DESACTIVADO".
+        """
+        # Encontrar la primera imagen de entrada disponible
+        source_img = None
+        for key, val in inputs.items():
+            if isinstance(val, np.ndarray) and len(val.shape) >= 2:
+                source_img = val
+                break
+        if source_img is None:
+            source_img = original_image
+
+        # Asegurar que sea BGR para sample
+        if len(source_img.shape) == 2:
+            source_bgr = cv2.cvtColor(source_img, cv2.COLOR_GRAY2BGR)
+        else:
+            source_bgr = source_img.copy()
+
+        # Construir outputs: propagar source_img a todos los outputs de tipo image
+        result = {}
+        for out_name, out_type in self.OUTPUTS.items():
+            if out_type == 'image':
+                if out_name == 'sample_image':
+                    # Generar sample con etiqueta "DESACTIVADO"
+                    sample = source_bgr.copy()
+                    cv2.putText(sample, f"[{self.FILTER_NAME}] DESACTIVADO",
+                               (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
+                    result[out_name] = sample
+                else:
+                    result[out_name] = source_img.copy()
+            # Para outputs no-imagen, no los incluimos (serán None en el pipeline)
+
+        # Garantizar que sample_image siempre exista
+        if 'sample_image' not in result:
+            sample = source_bgr.copy()
+            cv2.putText(sample, f"[{self.FILTER_NAME}] DESACTIVADO",
+                       (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
+            result['sample_image'] = sample
+
+        return result
+
     @abstractmethod
     def process(self, inputs: Dict[str, Any], original_image: np.ndarray) -> Dict[str, Any]:
         """

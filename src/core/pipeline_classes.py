@@ -435,8 +435,8 @@ class PipelineProcessor:
             elif source_id in self.filter_outputs:
                 inputs[input_name] = self.filter_outputs[source_id].get(output_name)
         
-        # Procesar el filtro
-        outputs = filter_instance.process(inputs, original_image)
+        # Procesar el filtro (execute() gestiona el pass-through si enabled=0)
+        outputs = filter_instance.execute(inputs, original_image)
         self.filter_outputs[filter_id] = outputs
         
         return outputs
