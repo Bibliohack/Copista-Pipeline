@@ -111,23 +111,15 @@
             }
         },
         "set_borders": {
-            "filter_name": "SelectBorderLines",
+            "filter_name": "ProjectionProfileBorder",
             "params": {
-                "margin_top": 20,
-                "margin_bottom": 10,
-                "margin_left": 30,
-                "margin_right": 30,
-                "cluster_top": 6,
-                "cluster_bottom": 0,
-                "cluster_left": 4,
-                "cluster_right": 3,
-                "line_thickness": 1,
-                "selected_color_r": 5,
-                "selected_color_g": 255,
-                "selected_color_b": 255,
-                "border_color_r": 255,
-                "border_color_g": 115,
-                "border_color_b": 0
+                "search_zone_h": 0.45,
+                "search_zone_v": 0.45,
+                "onset_threshold": 0.05,
+                "onset_neighborhood": 15,
+                "use_phase2": 1,
+                "use_prewitt": 0,
+                "visualization_size": 900
             }
         },
         "quad_corners": {

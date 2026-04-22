@@ -84,12 +84,11 @@
             }
         },
         "set_borders": {
-            "filter_name": "SelectBorderLines",
-            "description": "Seleccionar las 4 líneas extremas de borde",
+            "filter_name": "ProjectionProfileBorder",
+            "description": "Detectar bordes por perfiles de proyeccion (Shamqoli)",
             "inputs": {
-                "base_image": "contrast.adjusted_image",
-                "horizontal_lines": "angle_classify.horizontal_lines",
-                "vertical_lines": "angle_classify.vertical_lines"
+                "edge_image": "canny_border.edge_image",
+                "base_image": "contrast.adjusted_image"
             }
         },
         "quad_corners": {

@@ -1,14 +1,14 @@
 {
     "version": "1.0",
     "description": "Procesa corpus Heraldo y genera polígonos detectados en formato .gt.json para comparación con anotaciones manuales.",
-    "source_folder": "./__data/heraldo_raw_100/Derecha/",
+    "source_folder": "./__data/heraldo_raw_100/",
     "log_file": "./__data/logs/heraldo_claude_batch.log",
     "targets": [
         {
             "filter_id": "polygon_to_gt",
             "output_name": "gt_data",
             "destination": {
-                "folder": "./__data/experiments/001_baseline/results/Derecha/",
+                "folder": "./__data/experiments/006_ppb_onset/results/",
                 "prefix": "",
                 "suffix": "",
                 "extension": "det.json"

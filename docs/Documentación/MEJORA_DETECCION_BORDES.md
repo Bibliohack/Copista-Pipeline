@@ -25,10 +25,10 @@ Desarrollar y evaluar estrategias que mejoren la robustez de la detección del p
 ```
 __data/
   ground_truth/
-    Derecha/
-      001.gt.json         ← anotaciones manuales (extensión .gt.json)
-      004.gt.json
-      ...
+    001_derecha.gt.json   ← anotaciones manuales (extensión .gt.json)
+    001_izquierda.gt.json
+    004_derecha.gt.json
+    ...
 
   experiments/
     001_baseline/
@@ -36,16 +36,18 @@ __data/
       params.json         ← snapshot del params.json usado en este experimento
       metrics.json        ← resultados IoU generados por iou_metrics.py
       results/
-        Derecha/
-          001.det.json    ← polígono detectado por el pipeline (extensión .det.json)
-          004.det.json
-          ...
+        001_derecha.det.json    ← polígono detectado por el pipeline (extensión .det.json)
+        001_izquierda.det.json
+        004_derecha.det.json
+        ...
     002_nombre_experimento/
       ...
 
   heraldo_raw_100/
-    Derecha/              ← 100 imágenes del corpus (subconjunto de evaluación)
-    Izquierda/
+    001_derecha.jpg       ← 100 imágenes del corpus (subconjunto de evaluación, estructura plana)
+    001_izquierda.jpg
+    004_derecha.jpg
+    ...
 ```
 
 **Convención de extensiones:**
@@ -67,8 +69,8 @@ GUI (tkinter) para marcar manualmente las 4 esquinas del borde físico del papel
 python3 src/ground_truth_annotator.py <carpeta_imagenes> --output <carpeta_gt>
 
 # Ejemplo para el corpus de evaluación:
-python3 src/ground_truth_annotator.py __data/heraldo_raw_100/Derecha/ \
-        --output __data/ground_truth/Derecha/
+python3 src/ground_truth_annotator.py __data/heraldo_raw_100/ \
+        --output __data/ground_truth/
 ```
 
 **Controles:**
@@ -155,16 +157,16 @@ Genera `__data/experiments/001_baseline/metrics.json` y muestra por consola:
 ====================================================
   001_baseline
 ====================================================
-  Imágenes evaluadas   : 50
-  Detecciones fallidas : 3
-  IoU medio            : 0.8812
-  IoU mediana          : 0.9034
-  IoU std              : 0.0941
-  IoU mín / máx        : 0.4210 / 0.9741
+  Imágenes evaluadas   : 100
+  Detecciones fallidas : 0
+  IoU medio            : 0.9575
+  IoU mediana          : 0.9695
+  IoU std              : 0.0381
+  IoU mín / máx        : 0.8047 / 0.9935
 ====================================================
   Por imagen:
-    [✓] Derecha/001  IoU=0.9284
-    [✗] Derecha/007  IoU=0.0000   ← detección incompleta
+    [✓] 001_derecha  IoU=0.9284
+    [✗] 022_izquierda  IoU=0.0000   ← detección incompleta
     ...
 ```
 
@@ -197,7 +199,7 @@ Experimento              N  Fallidos    Media  Mediana     Std     Mín     Máx
 1. Modificar examples/Heraldo_Claude/pipeline.json y/o params.json
          ↓
 2. Actualizar batch_config.json:
-   - "folder": "__data/experiments/NNN_nombre/results/Derecha/"
+   - "folder": "__data/experiments/NNN_nombre/results/"
          ↓
 3. Correr el pipeline:
    python3 src/batch_processor.py --pipeline examples/Heraldo_Claude/
@@ -376,19 +378,19 @@ El campo `type` en `.det.json` indica la confiabilidad de cada esquina:
 ```json
 {
   "experiment": "001_baseline",
-  "evaluated_at": "2026-03-02T12:00:00",
+  "evaluated_at": "2026-03-13T12:00:00",
   "gt_folder": "__data/ground_truth",
   "summary": {
-    "evaluated": 50,
-    "failed_detection": 3,
-    "mean_iou": 0.8812,
-    "median_iou": 0.9034,
-    "std_iou": 0.0941,
-    "min_iou": 0.4210,
-    "max_iou": 0.9741
+    "evaluated": 100,
+    "failed_detection": 0,
+    "mean_iou": 0.9575,
+    "median_iou": 0.9695,
+    "std_iou": 0.0381,
+    "min_iou": 0.8047,
+    "max_iou": 0.9935
   },
   "results": [
-    {"image": "001", "subset": "Derecha", "iou": 0.9284, "all_corners_found": true},
+    {"image": "001_derecha", "iou": 0.9284, "all_corners_found": true},
     ...
   ]
 }
