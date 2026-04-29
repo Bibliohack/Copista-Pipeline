@@ -60,6 +60,31 @@ Estima el fondo de iluminación y lo combina con la imagen original mediante dis
 | 7 vivid_light | burn/dodge según B | Máximo contraste local |
 | 8 linear_light | `I + 2B - 1` | Balance lineal |
 | 9 exclusion | `I + B - 2IB` | Efecto suave |
+| 10 invert_soft_light | `B_inv=1-B; (1-2·B_inv)·I²+2·B_inv·I` | Soft light con el fondo invertido. Aclara zonas oscuras más agresivamente que el soft_light estándar |
+
+**Parámetro `blend_mode` — rango:** 0–9 inicialmente; se añadió el modo 10 (`invert_soft_light`).
+
+---
+
+### 1b. AutoLevels (`auto_levels_filter.py`)
+
+Complemento de BackgroundNormalization. Estira el histograma del resultado al rango completo
+(equivalente al "Auto Levels" de Photoshop).
+
+**Proceso:**
+1. Recorta percentiles bajo/alto del histograma (elimina outliers de píxeles)
+2. Estira el rango restante a `[0, 255]`
+3. Aplica corrección de gamma si el punto medio difiere de 128: `γ = log(0.5) / log(midpoint/255)`
+
+**Parámetros:**
+
+| Parámetro | Rango | Descripción |
+|---|---|---|
+| `clip_low` | 0–5 (×0.1%) | Percentil de recorte bajo (elimina negros extremos) |
+| `clip_high` | 0–5 (×0.1%) | Percentil de recorte alto (elimina blancos extremos) |
+| `midpoint` | 1–254 | Punto medio del histograma (128 = neutro, <128 = aclara, >128 = oscurece) |
+| `output_channel` | 0–2 | 0=canal L, 1=gris, 2=BGR |
+| `show_comparison` | 0–1 | Comparación lado a lado |
 
 ---
 
@@ -103,22 +128,39 @@ Pipeline de comparación: los 4 filtros toman el mismo input como alternativas i
 Pipeline de normalización completo basado en BackgroundNormalization:
 
 ```
-resize → background_norm → brightness_contrast → histogram_peaks → normalize_levels
+background_norm → [brightness_contrast] → [histogram_peaks] → [normalize_levels] → mask_page
 ```
 
-- `background_norm` — corrige el gradiente de iluminación
-- `brightness_contrast` — ajuste global fino
-- `histogram_peaks` — detecta picos oscuro/claro del histograma
-- `normalize_levels` — ajusta punto negro y blanco según los picos detectados
+Los filtros en `[corchetes]` están deshabilitados (`"enabled": 0`) en producción.
+El pipeline de producción usa efectivamente sólo BackgroundNormalization → MaskOutsidePolygon.
 
-**Punto de partida recomendado:** `blend_mode=1` (divide), `output_channel=0` (LAB), `background_method=1` (cierre morfológico).
+**Parámetros de producción (2026-04-24):**
+
+| Parámetro | Valor | Notas |
+|---|---|---|
+| `blend_mode` | 3 (gamma_divide) | `(I/B)^γ` — buena relación corrección/tonalidad |
+| `background_method` | 0 (Gaussiano puro) | Más rápido; cierre morfológico (method=1) es más preciso pero más lento |
+| `blur_radius` | 130 | Suavizado del fondo estimado |
+| `strength` | 95 | Corrección casi completa |
+| `gamma` | 25 | Exponente efectivo: 25/10 = 2.5 |
+| `output_channel` | 0 (canal L LAB) | Conserva tonalidad cálida del papel |
+
+**¿Por qué `gamma_divide` sobre `divide` (modo 1)?**
+El modo 1 (`I/B × mean(B)`) implementa el modelo físico correcto, pero amplifica las zonas muy oscuras cuando el fondo estimado es bajo. El modo 3 (`(I/B)^γ`) aplica un exponente que comprime esta amplificación, dando un resultado visualmente más equilibrado para el corpus Heraldo donde el papel tiene tonos muy variados.
+
+**MaskOutsidePolygon** (último paso): lee el `.crop.json` compañero de la imagen escalada
+(paso 5) y pinta de blanco el área exterior al polígono con blur de borde `blur_radius=10`.
+Requiere que `batch_processor` haya configurado `current_image_path`.
 
 ---
 
 ## Notas de integración en pipeline de producción
 
-El filtro de normalización debe aplicarse **antes** de cualquier detección de bordes o umbralización:
+En el pipeline de producción (paso 6), la normalización se aplica **sobre la imagen escalada** (paso 5), no sobre el crop directo. El orden completo es:
 
 ```
-Resize → [BackgroundNormalization] → BrightnessContrast → NormalizeFromHistogram → Grayscale → Blur → Canny → ...
+paso4_recortado → paso5_escalado → [BackgroundNormalization → MaskOutsidePolygon] → paso6_normalizado
 ```
+
+El OCR (paso 7) usa la imagen de paso5_escalado directamente, NO la normalizada en color,
+porque la binarización adaptativa (Sauvola) aprovecha mejor la imagen sin la corrección de color.

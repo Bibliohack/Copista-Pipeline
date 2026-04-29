@@ -266,11 +266,37 @@ El pipeline actual usa detección de bordes Canny seguida de transformada de Hou
 
 **Referencia:** `experiments/001_baseline/`
 
-### Estrategia 2 (pendiente): Projection Profile (paper Shamqoli)
-Aplicar histogramas de proyección sobre la imagen de bordes (Prewitt):
-- **Picos** en los extremos del histograma → borde físico del papel
-- **Fase 2 del paper**: refinamiento con cuartiles (LQ/UQ) para detectar texto de página vecina y recalcular ese borde
-- Particularmente útil cuando la línea física no es clara y el texto de la página adyacente contamina el borde
+### Estrategia 2 (implementada): Projection Profile (paper Shamqoli)
+
+Detecta los bordes de la página mediante histogramas de proyección sobre la imagen de bordes Canny.
+
+**Evolución (ver bitácora `bitacora/2026-03-13_experimentos_ppb.md`):**
+
+**v1 — argmax (experimento 005, IoU=0.5375):**
+- `top/bottom = argmax(H)` en las zonas superior/inferior del histograma
+- Falla porque el pico más alto puede ser una línea de texto interna, no el borde físico
+
+**v2 — onset + pico local (experimento 006, IoU=0.6961):**
+- `_find_onset_peak`: escanea desde cada extremo buscando la *primera* señal significativa (`H[i] >= max(H) × onset_threshold`)
+- Busca el pico máximo en el vecindario `[onset, onset + onset_neighborhood)`
+- El borde físico siempre aparece antes que el contenido impreso → onset encuentra la señal correcta
+
+**v3 — PPB + MinArcLength (experimento 007, IoU=0.9451, mínimo=0.8508):**
+- Aplica `MinArcLength(min_length=401px)` sobre el Canny **antes** de calcular los perfiles de proyección
+- Elimina el texto impreso del mapa de bordes (caracteres individuales tienen arcos cortos; los bordes físicos tienen arcos largos)
+- Resultado: los histogramas quedan limpios y el onset converge directamente al borde físico del papel
+- **Cero fallos catastróficos** (mínimo IoU = 0.8508 vs 0.8047 del baseline Hough)
+
+**Parámetros del 007:**
+
+| Parámetro | Valor | Descripción |
+|---|---|---|
+| `min_length` (MinArcLength) | 401 px | Umbral de longitud mínima de arco Canny |
+| `onset_threshold` | 0.07 | Fracción del máximo del perfil para definir señal |
+| `onset_neighborhood` | 20 | Vecindario de búsqueda del pico desde el onset |
+| `search_zone_h` | 0.25 | Fracción de la imagen donde buscar bordes H |
+| `search_zone_v` | 0.30 | Fracción de la imagen donde buscar bordes V |
+| `use_phase2` | 0 | Fase 2 (cuartiles Shamqoli) desactivada |
 
 Paper de referencia: `docs/Info_relacionada/Shamqoli-...-BorderDetection...pdf`
 
@@ -292,9 +318,9 @@ Ver `FILTROS_PROPORCION_CORPUS.md` y `FILTROS_REFINAMIENTO_POLIGONO.md` para doc
 
 | Técnica | Fortaleza | Estado |
 |---------|-----------|--------|
-| Hough lines (base) | Detecta líneas físicas rectas con precisión cuando el contraste es bueno | Implementada |
-| Proporción invariante | Valida y corrige cuando `SelectBorderLines` elige líneas de elementos externos | Implementada |
-| Projection profile | Robusto cuando la línea no es visible; maneja texto de página vecina | Pendiente |
+| Hough lines (001) | Detecta líneas físicas rectas con precisión cuando el contraste es bueno | Implementada — IoU=0.9575, mínimo=0.8047 |
+| Proporción invariante (002-004) | Valida y corrige cuando SelectBorderLines elige líneas de elementos externos | Implementada — IoU menor al baseline por mayor complejidad de búsqueda |
+| Projection profile (007) | Robusto cuando la línea no es visible; mínimo IoU garantizado | Implementada — IoU=0.9451, mínimo=0.8508, cero fallos |
 
 ---
 
@@ -308,11 +334,14 @@ Ver `FILTROS_PROPORCION_CORPUS.md` y `FILTROS_REFINAMIENTO_POLIGONO.md` para doc
 | `ClassifyLinesByAngle` | Separar líneas por orientación |
 | `SelectBorderLines` | Selección simple de las 4 líneas más extremas (Estrategia 1) |
 | `CalculateQuadCorners` | Calcular vértices del polígono |
-| `CalculatePolygonProportion` | Medir la proporción de una detección individual (Estrategia 3 - calibración) |
-| `FindPeakProportion` | Encontrar la proporción más frecuente del corpus (Estrategia 3 - calibración) |
-| `RefinePolygonByArea` | Búsqueda por proporción + área (Estrategia 3 - restricción) |
-| `RefinePolygonByCanny` | Búsqueda con soporte Canny (Estrategia 3 - restricción) |
+| `CalculatePolygonProportion` | Medir la proporción de una detección individual (Estrategia 3 — calibración) |
+| `FindPeakProportion` | Encontrar la proporción más frecuente del corpus (Estrategia 3 — calibración) |
+| `RefinePolygonByArea` | Búsqueda por proporción + área (Estrategia 3 — restricción) |
+| `RefinePolygonByCanny` | Búsqueda con soporte Canny (Estrategia 3 — restricción) |
 | `PolygonToGTFormat` | Convertir resultado a formato de evaluación |
+| `MinArcLength` | Filtra bordes Canny por longitud mínima de arco — clave en experimento 007 |
+| `ProjectionProfileBorder` | Histograma de proyección con onset+pico local (Estrategia 2) |
+| `FilterLinesByPPBZone` | Filtra líneas Hough a la zona de búsqueda del PPB |
 
 ### Herramientas de soporte implementadas
 
@@ -321,11 +350,22 @@ Ver `FILTROS_PROPORCION_CORPUS.md` y `FILTROS_REFINAMIENTO_POLIGONO.md` para doc
 | `find_peak_proportion.py` | `scripts/` | Script autónomo de calibración de corpus |
 | `ground_truth_annotator.py` | `src/` | GUI para anotación manual de ground truth |
 | `iou_metrics.py` | `src/` | Evaluación IoU de experimentos |
+| `debug_projection_profile.py` | `scripts/` | Histogramas PPB + Canny de una imagen para diagnóstico |
 | `_polygon_geometry.py` | `src/filter_library/` | Módulo interno de geometría compartido |
 
-### Pendiente de implementación
+### Tabla de experimentos
 
-- **Estrategia 2 (Projection Profile):** sin filtros implementados aún. Ver paper Shamqoli en `docs/Info_relacionada/`.
+| Exp | Descripción | IoU medio | Std | Mín | Fallidos |
+|---|---|---|---|---|---|
+| 001_baseline | SelectBorderLines (Hough) | **0.9575** | 0.0381 | 0.8047 | 0 |
+| 002_refine_polygon | RefinePolygonByCanny sin área | 0.8243 | 0.2910 | — | 1 |
+| 003_refine_area_fraction | + target_area_fraction | 0.8239 | 0.2526 | — | 1 |
+| 004_refine_zones | + restricciones zona | 0.7803 | 0.3470 | — | 16 |
+| 005_projection_profile | PPB argmax | 0.5375 | 0.1395 | — | 0 |
+| 006_ppb_onset | PPB onset+pico local | 0.6961 | 0.0469 | 0.600 | 0 |
+| **007_min_arc_canny** | **PPB + MinArcLength(401px) pre-PPB** | **0.9451** | **0.0329** | **0.8508** | **0** |
+
+**Conclusión actual:** el 001 (Hough) sigue siendo el más preciso (IoU=0.9575) pero con fallos catastróficos ocasionales. El 007 (PPB + MinArcLength) es el más robusto: IoU casi igual (0.9451), mínimo garantizado de 0.8508, cero fallos. En producción se usa el 001; el 007 es candidato para pipeline híbrido de validación cruzada (próximo experimento 008).
 
 ---
 

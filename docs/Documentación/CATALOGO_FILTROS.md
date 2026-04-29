@@ -110,13 +110,51 @@ Filtros para calibrar y usar la proporción física invariante de las páginas d
 
 ---
 
+## Normalización de iluminación
+
+Filtros para corregir la iluminación no uniforme de las capturas fotográficas. Ver `docs/Info_relacionada/NORMALIZACION_ILUMINACION.md` para análisis detallado.
+
+| FILTER_NAME | Archivo | Descripción |
+|-------------|---------|-------------|
+| `BackgroundNormalization` | `background_normalization.py` | Estima el fondo de iluminación (Gaussiano, cierre morfológico o dilatación) y lo combina con la imagen mediante 11 modos de mezcla (subtract, divide, retinex, gamma_divide, overlay, soft_light, hard_light, vivid_light, linear_light, exclusion, invert_soft_light). Opera preferentemente en canal L del espacio LAB para preservar la tonalidad de color del papel. **Mejor resultado para el corpus Heraldo.** |
+| `CLAHEFilter` | `clahe_filter.py` | Ecualización adaptativa de histograma con límite de contraste. Opera en canal L. Inferior a BackgroundNormalization para este corpus. |
+| `RetinexFilter` | `retinex_filter.py` | Algoritmo Retinex de Land: SSR (Single Scale) y MSR (Multi Scale, promedio de 3 escalas). Inferior a BackgroundNormalization para este corpus. |
+| `HomomorphicFilter` | `homomorphic_filter.py` | Filtrado homomórfico en dominio frecuencial: `log(I) → FFT → H_Butterworth(γ_low, γ_high) → IFFT → exp`. Útil cuando el gradiente es muy pronunciado pero inferior a BackgroundNormalization para este corpus. |
+| `AutoLevels` | `auto_levels_filter.py` | Estira el histograma al rango completo con recorte percentil (`clip_low`, `clip_high` en 0–5%) y ajuste de punto medio (gamma). Equivalente al "Auto Levels" de Photoshop. Opera en canal L, gris o BGR. |
+
+---
+
+## Detección de bordes de página — PPB
+
+Filtros del algoritmo Projection Profile Border (Shamqoli 2013). Ver `MEJORA_DETECCION_BORDES.md`.
+
+| FILTER_NAME | Archivo | Descripción |
+|-------------|---------|-------------|
+| `ProjectionProfileBorder` | `projection_profile_border.py` | Detecta los 4 bordes de la página mediante histogramas de proyección sobre la imagen de bordes Canny. Algoritmo de onset+pico local: escanea desde cada extremo buscando la primera señal significativa (fracción del máximo). Implementa `without_preview`. Parámetros clave: `onset_threshold`, `onset_neighborhood`, `search_zone_h/v`, `use_phase2`, `min_length`. |
+| `FilterLinesByPPBZone` | `filter_lines_by_ppb_zone.py` | Filtra líneas de Hough reteniéndo solo las que caen dentro de la zona de búsqueda del PPB. Usado para combinar PPB (localización de zona) + Hough (precisión de línea). |
+
+---
+
+## Producción — polígono compañero
+
+Filtros del flujo de producción que conectan la detección (paso 1) con el recorte (paso 4) y la máscara (paso 6).
+
+| FILTER_NAME | Archivo | Descripción |
+|-------------|---------|-------------|
+| `LoadPolygonFromDet` | `load_polygon_from_det.py` | Lee el `.det.json` compañero de la imagen actual (`current_image_path`) e inyecta el polígono y el ángulo de rotación al pipeline. Permite usar la detección pre-validada en el pipeline de recorte sin necesidad de re-detectar. |
+| `SavePolygonForMask` | `save_polygon_for_mask.py` | Transforma las esquinas del polígono al espacio de la imagen recortada+orientada (offset de crop + rotación ortogonal) y las emite como metadata `crop_polygon`. El batch_processor guarda este output como `.crop.json` compañero de la imagen. |
+| `MaskOutsidePolygon` | `mask_outside_polygon.py` | Pinta de blanco el área exterior al polígono de la página con borde suavizado (Gaussian alpha blend). Si no recibe `corners` por el pipeline, lee automáticamente el `.crop.json` compañero de `current_image_path`. |
+
+---
+
 ## OCR y PDF
 
 Filtros para reconocimiento óptico de caracteres y generación de PDF con capa de texto.
 
 | FILTER_NAME | Archivo | Descripción |
 |-------------|---------|-------------|
-| `TesseractOCR` | `tesseract_ocr.py` | OCR con pytesseract. Genera salida hOCR con coordenadas de palabras. Implementa `without_preview`. Idiomas: `spa`, `eng`, `spa+eng`, `auto`. |
+| `TesseractOCR` | `tesseract_ocr.py` | OCR con pytesseract. Genera salida hOCR con coordenadas de palabras. Implementa `without_preview`. Idiomas: `spa`, `eng`, `spa+eng`, `auto`. Import pytesseract es lazy (no rompe si no está instalado). |
+| `SauvolaThreshold` | `sauvola_threshold.py` | Umbral adaptativo local Sauvola: `T = mean × (1 + k × (std/R - 1))`. Implementado con `cv2.boxFilter` para eficiencia. Parámetros: `window_size`, `k` (0.2 default), `r` (128 default), `invert`. |
 | `HOCRtoPDF` | `hocr_to_pdf.py` | Genera PDF con capa de texto invisible desde imagen + hOCR. Implementa `without_preview`. Requiere reportlab. |
 | `ScaleHOCR` | `scale_hocr.py` | Escala las coordenadas bbox de un hOCR a nuevas dimensiones de imagen. Usa parser ET con fallback a regex. |
 
@@ -132,8 +170,11 @@ Filtros para reconocimiento óptico de caracteres y generación de PDF con capa 
 | Transformaciones geométricas | 6 |
 | Polígono y bordes de página | 5 |
 | Proporción de corpus | 2 |
-| OCR y PDF | 3 |
-| **Total** | **42** |
+| Normalización de iluminación | 5 |
+| Detección de bordes — PPB | 2 |
+| Producción — polígono compañero | 3 |
+| OCR y PDF | 4 |
+| **Total** | **53** |
 
 ---
 
