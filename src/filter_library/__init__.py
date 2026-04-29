@@ -52,6 +52,11 @@ from .refine_polygon_by_area import RefinePolygonByArea
 from .refine_polygon_by_canny import RefinePolygonByCanny
 from .projection_profile_border import ProjectionProfileBorder
 from .filter_lines_by_ppb_zone import FilterLinesByPPBZone
+from .load_polygon_from_det import LoadPolygonFromDet
+from .auto_levels_filter import AutoLevels
+from .sauvola_threshold import SauvolaThreshold
+from .mask_outside_polygon import MaskOutsidePolygon
+from .save_polygon_for_mask import SavePolygonForMask
 
 # Lista de todos los filtros disponibles
 __all__ = [
@@ -105,6 +110,11 @@ __all__ = [
     "RefinePolygonByCanny",
     "ProjectionProfileBorder",
     "FilterLinesByPPBZone",
+    "LoadPolygonFromDet",
+    "AutoLevels",
+    "SauvolaThreshold",
+    "MaskOutsidePolygon",
+    "SavePolygonForMask",
 ]
 
 
