@@ -193,7 +193,7 @@ class BatchValidator:
             if output_type == "image":
                 if extension and extension not in ["png", "jpg", "jpeg", "bmp", "tiff"]:
                     warnings.append(f"Target {i}: extensión '{extension}' inusual para imagen (recomendado: png, jpg)")
-            elif extension and extension not in ["json", "txt"]:
+            elif extension and extension not in ["json", "txt", "hocr", "text"]:
                 warnings.append(f"Target {i}: extensión '{extension}' inusual para datos (recomendado: json)")
             
             print(f"  ✓ Target {i}: {filter_id}.{output_name} ({output_type})")
@@ -268,6 +268,8 @@ class OutputSaver:
                 return OutputSaver._save_pdf(data, output_path)
             elif output_type == "float":
                 return OutputSaver._save_float(data, output_path)
+            elif output_type in ("hocr", "text"):
+                return OutputSaver._save_text(data, output_path)
             else:
                 # Por defecto, intentar guardar como JSON
                 return OutputSaver._save_json(data, output_path)
@@ -323,6 +325,16 @@ class OutputSaver:
         
         return True
     
+    @staticmethod
+    def _save_text(data: Any, path: Path) -> bool:
+        if data is None:
+            print(f"  ⚠️  Datos None, no se guardó: {path}")
+            return False
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with open(path, 'w', encoding='utf-8') as f:
+            f.write(str(data))
+        return True
+
     @staticmethod
     def _save_float(value: float, path: Path) -> bool:
         """Guarda un valor float como texto o JSON"""
@@ -616,6 +628,9 @@ class BatchProcessor:
             # Todos los targets ya existen, saltar
             return False
         
+        # Inyectar path de imagen actual en el processor
+        self.processor.current_image_path = str(self.browser.folder_path / img_name)
+
         # Procesar pipeline hasta el último filtro necesario
         try:
             self.processor.process_up_to(last_filter_id, img)

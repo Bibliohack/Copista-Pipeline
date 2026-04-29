@@ -40,13 +40,14 @@ class BaseFilter(ABC):
     def __init__(self, params: Dict[str, Any] = None, without_preview: bool = False):
         """
         Inicializa el filtro con parámetros
-        
+
         Args:
             params: Diccionario con valores de parámetros del filtro
             without_preview: Si True, el filtro puede omitir la generación de sample_image
                            (por defecto False, para compatibilidad con param_configurator.py)
         """
         self.without_preview = without_preview
+        self.current_image_path = None
         self.params = {}
         # Cargar defaults
         for name, config in self.PARAMS.items():

@@ -289,6 +289,7 @@ class PipelineProcessor:
         self.pipeline_path = pipeline_path
         self.params_path = params_path
         self.without_preview = without_preview  # ← NUEVO
+        self.current_image_path = None
         self.pipeline: OrderedDict = OrderedDict()
         self.saved_params: Dict = {}
         self.filter_instances: Dict[str, BaseFilter] = {}
@@ -435,6 +436,9 @@ class PipelineProcessor:
             elif source_id in self.filter_outputs:
                 inputs[input_name] = self.filter_outputs[source_id].get(output_name)
         
+        # Inyectar path de imagen actual en el filtro
+        filter_instance.current_image_path = getattr(self, 'current_image_path', None)
+
         # Procesar el filtro (execute() gestiona el pass-through si enabled=0)
         outputs = filter_instance.execute(inputs, original_image)
         self.filter_outputs[filter_id] = outputs
