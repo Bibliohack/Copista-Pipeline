@@ -302,11 +302,13 @@ class ParamConfigurator:
         """Procesa el pipeline y muestra el resultado"""
         if self.current_image is None:
             self.current_image = self.browser.get_current_image()
-        
+
         if self.current_image is None:
             print("No hay imagen para procesar")
             return
-        
+
+        self.processor.current_image_path = self.browser.get_current_path()
+
         view_id = self.get_current_view_id()
         if not view_id:
             print("No hay filtros en el pipeline")
@@ -457,7 +459,8 @@ class ParamConfigurator:
             return
         
         self.current_image = self.browser.get_current_image()
-        
+        self.processor.current_image_path = self.browser.get_current_path()
+
         while True:
             if self.needs_reprocess:
                 if self.reprocess_delay_ms == 0:
@@ -477,11 +480,13 @@ class ParamConfigurator:
             elif key == ord('a'):
                 self.browser.prev_image()
                 self.current_image = self.browser.get_current_image()
+                self.processor.current_image_path = self.browser.get_current_path()
                 self.needs_reprocess = True
-            
+
             elif key == ord('d'):
                 self.browser.next_image()
                 self.current_image = self.browser.get_current_image()
+                self.processor.current_image_path = self.browser.get_current_path()
                 self.needs_reprocess = True
             
             elif key == 32:  # ESPACIO

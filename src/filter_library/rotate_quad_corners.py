@@ -186,7 +186,7 @@ class RotateQuadCorners(BaseFilter):
             for name in corner_order:
                 corner = original_corners.get(name)
                 if corner and "x" in corner and "y" in corner:
-                    original_points.append((corner["x"], corner["y"]))
+                    original_points.append((int(corner["x"]), int(corner["y"])))
             
             if len(original_points) == 4:
                 polygon = np.array(original_points, dtype=np.int32)
@@ -202,7 +202,7 @@ class RotateQuadCorners(BaseFilter):
         for name in corner_order:
             corner = rotated_corners.get(name)
             if corner and "x" in corner and "y" in corner:
-                rotated_points.append((corner["x"], corner["y"]))
+                rotated_points.append((int(corner["x"]), int(corner["y"])))
         
         if len(rotated_points) == 4:
             polygon = np.array(rotated_points, dtype=np.int32)

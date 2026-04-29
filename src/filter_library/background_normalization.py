@@ -38,12 +38,12 @@ class BackgroundNormalization(BaseFilter):
         "blend_mode": {
             "default": 1,
             "min": 0,
-            "max": 9,
+            "max": 10,
             "step": 1,
             "description": (
                 "Modo de mezcla: 0=subtract, 1=divide, 2=retinex, 3=gamma_divide, "
                 "4=overlay, 5=soft_light, 6=hard_light, 7=vivid_light, "
-                "8=linear_light, 9=exclusion"
+                "8=linear_light, 9=exclusion, 10=invert_soft_light (blur→invertir→soft_light)"
             )
         },
         "strength": {
@@ -105,7 +105,7 @@ class BackgroundNormalization(BaseFilter):
     _BLEND_NAMES = [
         "subtract", "divide", "retinex", "gamma_divide",
         "overlay", "soft_light", "hard_light", "vivid_light",
-        "linear_light", "exclusion"
+        "linear_light", "exclusion", "invert_soft_light"
     ]
 
     _BG_METHOD_NAMES = ["gauss", "morph_close", "max_local"]
@@ -219,9 +219,17 @@ class BackgroundNormalization(BaseFilter):
             # linear_light
             result = I + 2.0 * B - 1.0
 
-        else:
-            # exclusion (modo 9)
+        elif blend_mode == 9:
+            # exclusion
             result = I + B - 2.0 * I * B
+
+        else:
+            # invert_soft_light (modo 10): blur → invertir background → soft_light
+            # El background invertido actúa como capa de corrección:
+            # zonas oscuras (sombras) → B alto → B_inv bajo → soft_light aclara
+            # zonas claras (sobreexpuestas) → B bajo → B_inv alto → soft_light oscurece
+            B_inv = 1.0 - B
+            result = (1.0 - 2.0 * B_inv) * I * I + 2.0 * B_inv * I
 
         return result.astype(np.float32)
 

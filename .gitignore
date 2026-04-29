@@ -227,3 +227,4 @@ gemini-api-key
 # source raw images form processing
 __data/
 sandbox/
+__produccion/
